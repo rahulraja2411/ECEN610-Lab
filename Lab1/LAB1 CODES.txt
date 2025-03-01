@@ -1,0 +1,178 @@
+LAB1 CODES:
+1a) import numpy as np import matplotlib.pyplot as plt from scipy.signal import freqz numerator_coeffs = [1, 1, 1]
+denominator_coeffs = [1]
+frequencies, response = freqz(numerator_coeffs, denominator_coeffs) plt.figure()
+plt.plot(frequencies, 20 * np.log10(np.abs(response))) plt.xscale('log')
+plt.title('Magnitude Response of FIR Filter') plt.xlabel('Frequency [rad/sample]') plt.ylabel('Magnitude [dB]')
+
+plt.grid(True) plt.show()
+
+
+#code to find zero and plows of fir and iir filters import numpy as np
+import matplotlib.pyplot as plt from scipy import signal numerator_iir = [0.5, 0.5]
+denominator_iir = [1, -0.5]
+frequencies_iir, response_iir = signal.freqz(numerator_iir, denominator_iir) plt.figure(figsize=(6, 4))
+plt.plot(frequencies_iir, 20 * np.log10(abs(response_iir))) plt.xscale('log')
+plt.xlabel('Frequency (rad/sample)') plt.ylabel('Amplitude [dB]')
+plt.title('IIR Filter Frequency Response') plt.grid(True)
+poles_iir = np.roots(denominator_iir) zeros_iir = np.roots(numerator_iir) print("IIR Filter Poles:", poles_iir) print("IIR Filter Zeros:", zeros_iir) numerator_fir = [1, 1, 1]
+denominator_fir = [1]
+frequencies_fir, response_fir = signal.freqz(numerator_fir, denominator_fir) plt.figure(figsize=(8, 4))
+plt.plot(frequencies_fir, 20 * np.log10(abs(response_fir))) plt.xscale('log')
+
+plt.xlabel('Frequency (rad/sample)') plt.ylabel('Amplitude [dB]')
+plt.title('FIR Filter Frequency Response') plt.grid(True)
+poles_fir = np.roots(denominator_fir) zeros_fir = np.roots(numerator_fir) print("FIR Filter Poles:", poles_fir) print("FIR Filter Zeros:", zeros_fir)
+
+1b)
+import numpy as np
+import matplotlib.pyplot as plt from scipy.signal import freqz numerator_coeffs = [1, 1, 1, 1, 1]
+denominator_coeffs = [1, -1]
+frequencies, response = freqz(numerator_coeffs, denominator_coeffs) plt.figure()
+plt.plot(frequencies, 20 * np.log10(np.abs(response))) plt.xscale('log')
+plt.title('Magnitude Response of FIR Filter') plt.xlabel('Frequency [rad/sample]') plt.ylabel('Magnitude [dB]')
+plt.grid(True) plt.show()
+
+1c)
+fir response to impulse :
+
+import numpy as np
+import matplotlib.pyplot as plt from scipy import signal fir_coeffs = [1, 1, 1]
+b_fir = np.array(fir_coeffs) / sum(fir_coeffs) input_signal = np.zeros(100) input_signal[0] = 1
+output_fir = np.convolve(input_signal, b_fir, mode='same') plt.figure(figsize=(6, 4))
+plt.stem(output_fir, use_line_collection=True) plt.title("FIR Filter Response to Impulse") plt.xlabel("Samples")
+plt.ylabel("Amplitude") plt.grid(True) plt.show()
+
+#iir response to impulse:
+
+
+import numpy as np
+import matplotlib.pyplot as plt from scipy import signal
+b_iir = [0.5, 0.5]
+a_iir = [1, -1.5]
+input_signal = np.zeros(100)
+input_signal[0] = 1 # Impulse input (1 at n=0) output_iir = signal.lfilter(b_iir, a_iir, input_signal) plt.figure(figsize=(6, 4))
+
+plt.stem(output_iir, use_line_collection=True) plt.title("IIR Filter Response to Impulse (Unstable)") plt.xlabel("Samples")
+plt.ylabel("Amplitude") plt.grid(True) plt.show()
+
+2)
+a)
+import numpy as np
+import matplotlib.pyplot as plt sampling_rate = 500e6 signal1_frequency = 300e6 signal2_frequency = 800e6
+time_signal1_continuous = np.linspace(0, 10 * (1 / signal1_frequency), 15000)
+time_signal2_continuous = np.linspace(0, 10 * (1 / sampling_rate), 15000) time_signal1_sampled = np.arange(0, 10 * (1 / signal1_frequency), (1 / sampling_rate)) time_signal2_sampled = np.arange(0, 10 * (1 / signal2_frequency), (1 / sampling_rate)) signal1_continuous = np.cos(2 * np.pi * signal1_frequency * time_signal1_continuous) signal2_continuous = np.cos(2 * np.pi * signal2_frequency * time_signal2_continuous) signal1_sampled = np.cos(2 * np.pi * signal1_frequency * time_signal1_sampled) signal2_sampled = np.cos(2 * np.pi * signal2_frequency * time_signal2_sampled)
+fig, (ax_signal1_continuous, ax_signal2_continuous) = plt.subplots(2, 1, figsize=(10, 6)) fig.suptitle('Signal 1: Continuous vs Sampled') ax_signal1_continuous.plot(time_signal1_continuous, signal1_continuous, color='blue') ax_signal1_continuous.set_title('Original Signal 1 (Continuous)') ax_signal1_continuous.set_xlabel('Time (seconds)') ax_signal1_continuous.set_ylabel('Amplitude')
+
+ax_signal1_continuous.grid(True)
+ax_signal2_continuous.plot(time_signal1_sampled, signal1_sampled, color='red', marker='o') ax_signal2_continuous.set_title('Sampled Signal 1')
+ax_signal2_continuous.set_xlabel('Time (seconds)') ax_signal2_continuous.set_ylabel('Amplitude') ax_signal2_continuous.grid(True)
+plt.tight_layout() plt.show()
+fig, (ax_signal1_continuous, ax_signal2_continuous) = plt.subplots(2, 1, figsize=(10, 6)) fig.suptitle('Signal 2: Continuous vs Sampled') ax_signal1_continuous.plot(time_signal2_continuous, signal2_continuous, color='green') ax_signal1_continuous.set_title('Original Signal 2 (Continuous)') ax_signal1_continuous.set_xlabel('Time (seconds)') ax_signal1_continuous.set_ylabel('Amplitude')
+ax_signal1_continuous.grid(True)
+ax_signal2_continuous.plot(time_signal2_sampled, signal2_sampled, color='orange', marker='o') ax_signal2_continuous.set_title('Sampled Signal 2')
+ax_signal2_continuous.set_xlabel('Time (seconds)') ax_signal2_continuous.set_ylabel('Amplitude') ax_signal2_continuous.grid(True)
+plt.tight_layout() plt.show()
+
+d)
+import numpy as np
+import matplotlib.pyplot as plt
+
+Fs = 800e6 F1 = 300e6 T = 10 / F1
+Ts = 1 / Fs
+t = np.linspace(0, 10 * T, 10000) x = np.cos(2 * np.pi * F1 * t)
+
+ts = np.arange(0, (10 * T) - Ts, Ts) xs = np.cos(2 * np.pi * F1 * ts)
+tsinc = np.linspace(0, (10 * T) - Ts, 10000) # Fine time vector for reconstruction xsinc = np.zeros(len(tsinc)) # Sinc function values
+xrecon = np.zeros(len(tsinc)) # Reconstructed signal values
+
+
+for i in range(0, len(ts)):
+xsinc = np.sinc((tsinc - (i * Ts)) / Ts) xrecon = xrecon + (xs[i] * xsinc)
+ts1 = np.arange(Ts / 2, (10 * T) - (Ts / 2), Ts) xs1 = np.cos(2 * np.pi * F1 * ts1)
+
+tsinc1 = np.linspace(Ts / 2, (10 * T) - (Ts / 2), 10000) xsinc1 = np.zeros(len(tsinc1))
+xrecon1 = np.zeros(len(tsinc1)) for i in range(0, len(ts1)):
+xsinc1 = np.sinc((tsinc1 - (i * Ts)) / Ts) xrecon1 = xrecon1 + (xs1[i] * xsinc1)
+fig, (ax1, ax2, ax3, ax4, ax5, ax6, ax7) = plt.subplots(7, 1, figsize=(10, 10)) ax1.plot(t, x)
+
+ax1.set_title('Original Signal') ax1.set_xlabel('Time (s)') ax1.set_ylabel('Amplitude') ax2.plot(ts, xs) ax2.set_title('Sampled Signal at Ts') ax2.set_xlabel('Time (s)') ax2.set_ylabel('Amplitude') ax3.plot(tsinc, xsinc)
+ax3.set_title('Sinc Function for Reconstruction') ax3.set_xlabel('Time (s)') ax3.set_ylabel('Amplitude')
+ax4.plot(tsinc, xrecon)
+ax4.set_title('Reconstructed Signal from Ts Sampling') ax4.set_xlabel('Time (s)')
+ax4.set_ylabel('Amplitude') ax5.plot(ts1, xs1)
+ax5.set_title('Sampled Signal at Ts/2 Shift') ax5.set_xlabel('Time (s)') ax5.set_ylabel('Amplitude') ax6.plot(tsinc1, xsinc1)
+ax6.set_title('Sinc Function for Ts/2 Shift') ax6.set_xlabel('Time (s)') ax6.set_ylabel('Amplitude') ax7.plot(tsinc1, xrecon1)
+ax7.set_title('Reconstructed Signal from Ts/2 Shift Sampling') ax7.set_xlabel('Time (s)')
+ax7.set_ylabel('Amplitude')
+
+def mean_squared_error_manual(y_true, y_pred):
+return np.mean((y_true - y_pred) ** 2)
+mse = mean_squared_error_manual(xrecon1, x)
+print(f'Mean Squared Error (MSE) for Ts/2 Shift Sampling: {mse}') plt.tight_layout()
+plt.show()
+
+
+3)
+a) import numpy as np
+import matplotlib.pyplot as plt from scipy.fftpack import fft
+f1 = 2e6 # Signal frequency (2 MHz)
+fs = 5e6 # Sampling frequency (5 MHz)
+T = 1 / fs # Sampling period
+time1 = np.linspace(0, 10 * (1 / f1), 10000) # Time for original signal (continuous) t = np.arange(0, 10 * (1 / f1), T) # Time for sampled signal (discrete)
+x = np.cos(2 * np.pi * f1 * time1) xs = np.cos(2 * np.pi * f1 * t)
+x_f = fft(xs, 64)
+xf = np.abs(x_f) # Take the magnitude of the DFT
+fig, (bx1, bx2, bx3) = plt.subplots(3, 1, figsize=(10, 8)) bx1.plot(time1, x)
+bx1.set_title('Original Signal (x(t) = cos(2*pi*F*t))') bx1.set_xlabel('Time [s]') bx1.set_ylabel('Amplitude')
+bx2.plot(t, xs)
+bx2.set_title('Sampled Signal (x_s[n])')
+
+bx2.set_xlabel('Time [s]') bx2.set_ylabel('Amplitude')
+frequencies = np.fft.fftfreq(64, T) # Frequency bins for DFT bx3.plot(frequencies, xf)
+bx3.set_title('Magnitude of the 64-point DFT') bx3.set_xlabel('Frequency [Hz]') bx3.set_ylabel('Magnitude')
+plt.tight_layout() plt.show()
+
+b)
+import numpy as np
+import matplotlib.pyplot as plt from scipy.fftpack import fft f1 = 200e6
+f2 = 400e6
+fs = 1e9
+time1 = np.linspace(0, 10 * (1 / (f1 + f2)), 10000) # Time for 10 cycles of the combined signal t = np.arange(0, 10 * (1 / (f1 + f2)), 1 / fs) # Sampled signal with step of 1/fs
+x = np.cos(2 * np.pi * f1 * time1) + np.cos(2 * np.pi * f2 * time1) xs = np.cos(2 * np.pi * f1 * t) + np.cos(2 * np.pi * f2 * t)
+x_f = fft(xs, 64)
+
+
+xf = np.abs(x_f)
+frequencies = np.fft.fftfreq(64, 1/fs) positive_frequencies = frequencies[:32] positive_xf = xf[:32]
+
+fig, (bx1, bx2, bx3) = plt.subplots(3, 1, figsize=(10, 8)) bx1.plot(time1, x)
+bx1.set_title('Original Signal: $y(t) = \cos(2\pi F_1 t) + \cos(2\pi F_2 t)$') bx1.set_xlabel('Time [s]')
+bx1.set_ylabel('Amplitude')
+bx2.stem(t, xs, use_line_collection=True) bx2.set_title('Sampled Signal at $F_s = 1$ GHz') bx2.set_xlabel('Time [s]') bx2.set_ylabel('Amplitude') bx3.plot(positive_frequencies, positive_xf)
+bx3.set_title('Magnitude of 64-point DFT (Positive Frequencies)') bx3.set_xlabel('Frequency [Hz]')
+bx3.set_ylabel('Magnitude') plt.tight_layout()
+plt.show()
+
+
+d)
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fftpack import fft, fftshift
+f1 = 2e6 # Frequency of the signal (2 MHz) fs = 5e6 # Sampling frequency (5 MHz)
+
+time1 = np.linspace(0, 10 * (1 / f1), 10000) t = np.arange(0, 10 * (1 / f1), 1 / fs)
+x = np.cos(2 * np.pi * f1 * time1) xs = np.cos(2 * np.pi * f1 * t)
+
+x_f = fft(xs, 50) xf = np.abs(x_f)
+blackman_window = np.blackman(len(xf)) xf_windowed = xf * blackman_window frequencies = np.fft.fftfreq(len(xf), 1/fs) frequencies = fftshift(frequencies)
+response = 20 * np.log10(np.abs(fftshift(xf_windowed / abs(xf_windowed).max()))) fig, (bx1, bx2, bx3, bx4) = plt.subplots(4, 1, figsize=(10, 8))
+bx1.plot(time1, x)
+bx1.set_title('Original Signal: x(t) = cos(2π * f1 * t)') bx1.set_xlabel('Time [s]') bx1.set_ylabel('Amplitude')
+bx2.plot(t, xs)
+bx2.set_title('Sampled Signal at Fs = 5 MHz') bx2.set_xlabel('Time [s]') bx2.set_ylabel('Amplitude') bx3.plot(frequencies, response)
+bx3.set_title('Blackman Windowed Frequency Response') bx3.set_xlabel('Frequency [Hz]') bx3.set_ylabel('Magnitude [dB]')
+bx4.plot(frequencies, xf)
+bx4.set_title('Magnitude of the DFT of Sampled Signal') bx4.set_xlabel('Frequency [Hz]') bx4.set_ylabel('Magnitde')
+plt.tight_layout() plt.show()
+
