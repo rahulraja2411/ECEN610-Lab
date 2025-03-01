@@ -1,0 +1,480 @@
+LAB2 CODES:
+
+1a)
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import signal  # Ensure this import is present
+
+# Define signal parameters
+signal_freq = 2e6  # Frequency of signal (2 MHz)
+period = 1 / signal_freq  # Period of signal
+time_vector = np.linspace(0, 100 * period, 10000 )  # Continuous time vector
+original_waveform = np.sin(2 * np.pi * signal_freq * time_vector)  # Original signal
+
+# Plot original signal
+fig1, original_plot = plt.subplots(figsize=(8, 4))
+original_plot.plot(time_vector * 1e6, original_waveform, label="Original Signal")  # Scale time to microseconds
+original_plot.set_xlabel("Time (µs)")
+original_plot.set_ylabel("Amplitude")
+original_plot.set_title("Original Signal")
+original_plot.grid()
+original_plot.legend()
+
+# Sampling parameters
+sampling_freq = 5e6  # Sampling frequency (5 MHz)
+sampling_period = 1 / sampling_freq  # Sampling period
+sampled_time_vector = np.arange(0, 100 * period, sampling_period)  # Sampled time vector
+sampled_waveform = np.sin(2 * np.pi * signal_freq * sampled_time_vector)  # Sampled signal
+
+# Plot sampled signal
+fig2, sampled_plot = plt.subplots(figsize=(8, 4))
+sampled_plot.plot(time_vector * 1e6, original_waveform, 'b', alpha=0.5, label="Original Signal")  # Light original signal for reference
+sampled_plot.plot(sampled_time_vector * 1e6, sampled_waveform, 'ro', markersize=4, label="Sampled Points")  # Sampled points in red
+sampled_plot.set_xlabel("Time (µs)")
+sampled_plot.set_ylabel("Amplitude")
+sampled_plot.set_title("Sampled Signal at 5 MHz")
+sampled_plot.grid()
+sampled_plot.legend()
+
+# Show plots
+plt.show()
+
+# Compute mean power of the sampled signal
+sampled_power_avg = np.mean(pow(sampled_waveform, 2))
+print("Average power of the sampled signal:", sampled_power_avg)
+
+# Set SNR
+snr_db = 50
+print("Desired SNR (dB):", snr_db)
+snr_linear = pow(10, (snr_db / 10))
+print("SNR (Linear Scale):", snr_linear)
+
+# Compute noise variance for desired SNR
+noise_power_avg = sampled_power_avg / snr_linear
+noise_variance = noise_power_avg
+print("Computed noise variance:", noise_variance)
+
+# Generate Gaussian noise
+mean_noise = 0
+gaussian_noise = np.random.normal(mean_noise, np.sqrt(noise_variance), len(sampled_time_vector))
+
+# Compute actual noise power
+actual_noise_power_avg = np.mean(pow(gaussian_noise, 2))
+print("Measured power of the noise signal:", actual_noise_power_avg)
+
+# Plot noise signal
+fig3, noise_plot = plt.subplots(figsize=(8, 4))
+noise_plot.plot(sampled_time_vector * 1e6, gaussian_noise, label="Gaussian Noise")
+noise_plot.set_xlabel("Time (µs)")
+noise_plot.set_ylabel("Amplitude")
+noise_plot.set_title("Gaussian Noise Signal")
+noise_plot.grid()
+noise_plot.legend()
+
+# Add noise to the sampled signal
+noisy_sampled_signal = sampled_waveform + gaussian_noise
+
+# Plot noisy sampled signal
+fig4, noisy_signal_plot = plt.subplots(figsize=(8, 4))
+noisy_signal_plot.plot(sampled_time_vector * 1e6, noisy_sampled_signal, label="Noisy Sampled Signal")
+noisy_signal_plot.set_xlabel("Time (µs)")
+noisy_signal_plot.set_ylabel("Amplitude")
+noisy_signal_plot.set_title("Noisy Sampled Signal")
+noisy_signal_plot.grid()
+noisy_signal_plot.legend()
+
+# Compute Power Spectral Density (PSD)
+freq_values, psd_values = signal.periodogram(noisy_sampled_signal, sampling_freq, nfft=230)
+
+# Plot Power Spectral Density
+fig5, psd_plot = plt.subplots(figsize=(8, 4))
+psd_plot.plot(freq_values, psd_values, label="Power Spectral Density")
+psd_plot.set_xlabel("Frequency (Hz)")
+psd_plot.set_ylabel("Power Spectral Density")
+psd_plot.set_title("Power Spectral Density of Noisy Sampled Signal")
+psd_plot.grid()
+psd_plot.legend()
+
+# Find signal peak in PSD
+peak_freq = freq_values[np.argmax(psd_values)]
+
+# Compute signal and noise power from PSD
+signal_power = 0
+noise_power = 0
+
+for i in range(len(freq_values)):
+    if freq_values[i] == peak_freq:
+        signal_power += psd_values[i]
+    else:
+        noise_power += psd_values[i]
+
+print("Extracted signal power from PSD:", signal_power)
+print("Extracted noise power from PSD:", noise_power)
+
+# Compute actual SNR from PSD
+actual_snr = 10 * np.log10(signal_power / noise_power)
+print(f"SNR computed from PSD of noisy sampled signal: {actual_snr:.2f} dB")
+
+# Show all plots
+plt.show()
+1b)
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import signal  # Ensure this import is present
+
+# Define signal parameters
+signal_freq = 2e6  # Frequency of signal (2 MHz)
+period = 1 / signal_freq  # Period of signal
+time_vector = np.linspace(0, 100 * period, 10000 )  # Continuous time vector
+original_waveform = np.sin(2 * np.pi * signal_freq * time_vector)  # Original signal
+
+# Plot original signal
+fig1, original_plot = plt.subplots(figsize=(8, 4))
+original_plot.plot(time_vector * 1e6, original_waveform, label="Original Signal")  # Scale time to microseconds
+original_plot.set_xlabel("Time (µs)")
+original_plot.set_ylabel("Amplitude")
+original_plot.set_title("Original Signal")
+original_plot.grid()
+original_plot.legend()
+
+# Sampling parameters
+sampling_freq = 5e6  # Sampling frequency (5 MHz)
+sampling_period = 1 / sampling_freq  # Sampling period
+sampled_time_vector = np.arange(0, 100 * period, sampling_period)  # Sampled time vector
+sampled_waveform = np.sin(2 * np.pi * signal_freq * sampled_time_vector)  # Sampled signal
+
+# Apply window functions
+windows = {
+    "Hanning": np.hanning(len(sampled_waveform)),
+    "Hamming": np.hamming(len(sampled_waveform)),
+    "Blackman": np.blackman(len(sampled_waveform))
+}
+
+windowed_psds = {}
+windowed_signals = {}
+
+for window_name, window in windows.items():
+    windowed_signal = sampled_waveform * window
+    windowed_signals[window_name] = windowed_signal
+    freq_values, psd_values = signal.periodogram(windowed_signal, sampling_freq, nfft=230)
+    windowed_psds[window_name] = (freq_values, psd_values)
+
+# Plot windowed signals in separate frames
+for window_name, windowed_signal in windowed_signals.items():
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(sampled_time_vector * 1e6, windowed_signal, label=f"{window_name} Windowed Signal")
+    ax.set_xlabel("Time (µs)")
+    ax.set_ylabel("Amplitude")
+    ax.set_title(f"{window_name} Windowed Signal")
+    ax.grid()
+    ax.legend()
+
+# Plot PSDs in separate frames
+for window_name, (freq_values, psd_values) in windowed_psds.items():
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(freq_values, psd_values, label=f"{window_name} Window")
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Power Spectral Density")
+    ax.set_title(f"Power Spectral Density - {window_name} Window")
+    ax.grid()
+    ax.legend()
+
+plt.show()
+2a) ##Same code just change 30 cycles to 100 cycles
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Create a figure with 4 subplots arranged vertically
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 12))  # Adjust the size as needed
+
+# Plot Labels
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+# Signal Parameters
+sampling_rate = 400e6  # Sampling frequency in Hz (400 MHz)
+signal_frequency = 200e6  # Signal frequency in Hz (200 MHz)
+quantization_bits = 6  # Number of bits used for quantization
+quantization_levels = 2 ** quantization_bits  # Number of quantization levels
+quantization_step_size = 2 / quantization_levels  # Quantization step size
+signal_amplitude = 1  # Amplitude of the signal
+
+# Time axis for the original signal
+time_values = np.linspace(0, 10 * (1 / signal_frequency), 10000)
+
+# Sampled time values for the signal (30 cycles)
+sampling_times = np.arange(0, 30 * (1 / signal_frequency), (1 / sampling_rate))
+
+# Original continuous signal (sine wave)
+original_signal = signal_amplitude * np.cos(2 * np.pi * signal_frequency * time_values)
+
+# Sampled signal (discrete values at sampling times)
+sampled_signal = signal_amplitude * np.cos(2 * np.pi * signal_frequency * sampling_times)
+
+# Plot the original continuous signal
+ax1.plot(time_values, original_signal, color='blue')
+ax1.set_title('Original Continuous Signal')
+ax1.legend(['Original Signal'])
+ax1.set_xlabel('Time (s)')
+ax1.grid(True)
+
+# Plot the sampled signal
+ax2.stem(sampling_times, sampled_signal, basefmt=" ", use_line_collection=True, linefmt='blue', markerfmt='go')
+ax2.set_title('Sampled Signal')
+ax2.legend(['Sampled Signal'])
+ax2.set_xlabel('Time (s)')
+ax2.grid(True)
+
+# Quantization function
+def quantize_signal(input_signal, step_size):
+    """
+    Quantizes the input signal based on the given step size.
+    """
+    return np.round(input_signal / step_size) * step_size
+
+# Quantized version of the sampled signal
+quantized_signal = quantize_signal(sampled_signal, quantization_step_size)
+
+# Plot the quantized signal
+ax3.stem(sampling_times, quantized_signal, basefmt=" ", use_line_collection=True, linefmt='blue', markerfmt='go')
+ax3.set_title('Quantized Signal')
+ax3.legend(['Quantized Signal'])
+ax3.set_xlabel('Time (s)')
+ax3.grid(True)
+
+# Calculate the quantization error (difference between quantized signal and ideal quantization)
+ideal_quantized_signal = np.round(quantized_signal * (quantization_levels - 1) / 2) / (quantization_levels - 1) * 2
+quantization_error = quantized_signal - ideal_quantized_signal  # Error signal (quantization noise)
+
+# Compute the power spectral density (PSD) of the quantization error
+error_length = len(quantization_error)
+error_fft = np.fft.fft(quantization_error)
+error_psd = np.abs(error_fft) ** 2 / error_length  # Power spectral density of the error
+frequency_axis = np.fft.fftfreq(error_length, 1 / sampling_rate)  # Frequency axis for plotting
+
+# Plot the PSD of the quantization error
+ax4.plot(frequency_axis, error_psd, color='blue')
+ax4.set_title('Power Spectral Density (PSD) of Quantization Error')
+ax4.legend(['Quantization Error PSD'])
+ax4.set_xlabel('Frequency (Hz)')
+ax4.grid(True)
+
+# Adjust spacing between the subplots for better visualization
+fig.subplots_adjust(hspace=0.5)
+
+# Signal-to-Noise Ratio (SNR) Calculation
+signal_power = np.sum(quantized_signal ** 2) / error_length  # Signal power
+quantization_noise_power = np.sum(quantization_error ** 2) / error_length  # Quantization noise power
+snr_ratio = signal_power / quantization_noise_power  # SNR ratio
+snr_db = 10 * np.log10(snr_ratio)  # SNR in decibels
+
+# Print SNR result with 6 decimal places
+print(f"The Signal-to-Noise Ratio (SNR) calculated from the DFT is: {snr_db:.6f} dB")
+
+# Display all plots
+plt.show()
+
+
+2b) 
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Create a figure with 4 subplots arranged vertically
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 12))
+
+# Plot Labels
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+# Signal Parameters
+sampling_frequency = 715e6  # Sampling frequency in Hz (715 MHz)
+signal_frequency = 200e6   # Signal frequency in Hz (200 MHz)
+quantization_bits = 6      # Number of bits for quantization
+quantization_levels = 2 ** quantization_bits  # Number of quantization levels
+quantization_step = 2 / quantization_levels  # Quantization step size
+signal_amplitude = 1  # Amplitude of the signal
+
+# Time axis for the original continuous signal
+time_values = np.linspace(0, 10 * (1 / signal_frequency), 10000)
+
+# Sampled time axis for the signal (30 cycles)
+sampling_times = np.arange(0, 30 * (1 / signal_frequency), (1 / 455e6))
+
+# Original continuous signal (sine wave)
+original_signal = signal_amplitude * np.sin(2 * np.pi * signal_frequency * time_values)
+
+# Sampled signal (discrete values at sampling times)
+sampled_signal = signal_amplitude * np.sin(2 * np.pi * signal_frequency * sampling_times)
+
+# Plot the original continuous signal
+ax1.plot(time_values, original_signal, color='blue')
+ax1.set_title('Original Continuous Signal')
+ax1.legend(['Original Signal'])
+ax1.set_xlabel('Time (s)')
+ax1.grid(True)
+
+# Plot the sampled signal
+ax2.stem(sampling_times, sampled_signal, basefmt=" ", use_line_collection=True, linefmt='green', markerfmt='go')
+ax2.set_title('Sampled Signal')
+ax2.legend(['Sampled Signal'])
+ax2.set_xlabel('Time (s)')
+ax2.grid(True)
+
+# Quantization function
+def quantize_signal(input_signal, step_size):
+    """
+    Quantizes the input signal based on the given step size.
+    """
+    return np.round(input_signal / step_size) * step_size
+
+# Quantized version of the sampled signal
+quantized_signal = quantize_signal(sampled_signal, quantization_step)
+
+# Plot the quantized signal
+ax3.stem(sampling_times, quantized_signal, basefmt=" ", use_line_collection=True, linefmt='blue', markerfmt='go')
+ax3.set_title('Quantized Signal')
+ax3.legend(['Quantized Signal'])
+ax3.set_xlabel('Time (s)')
+ax3.grid(True)
+
+# Calculate the quantization error (difference between quantized signal and ideal quantization)
+ideal_quantized_signal = np.round(quantized_signal * (quantization_levels - 1) / 2) / (quantization_levels - 1) * 2
+quantization_error = quantized_signal - ideal_quantized_signal  # Error signal (quantization noise)
+
+# Compute the power spectral density (PSD) of the quantization error
+error_length = len(quantization_error)
+error_fft = np.fft.fft(quantization_error)
+error_psd = np.abs(error_fft) ** 2 / error_length  # Power spectral density of the error
+frequency_axis = np.fft.fftfreq(error_length, 1 / sampling_frequency)  # Frequency axis for plotting
+
+# Plot the PSD of the quantization error
+ax4.plot(frequency_axis, error_psd, color='blue')
+ax4.set_title('Power Spectral Density (PSD) of Quantization Error')
+ax4.legend(['Quantization Error PSD'])
+ax4.set_xlabel('Frequency (Hz)')
+ax4.grid(True)
+
+# Adjust spacing between the subplots for better visualization
+fig.subplots_adjust(hspace=0.5)
+
+# Signal-to-Noise Ratio (SNR) Calculation
+signal_power = np.sum(quantized_signal ** 2) / error_length  # Signal power
+quantization_noise_power = np.sum(quantization_error ** 2) / error_length  # Quantization noise power
+snr_ratio = signal_power / quantization_noise_power  # SNR ratio
+snr_db = 10 * np.log10(snr_ratio)  # SNR in decibels
+
+# Print SNR result with 6 decimal places
+print(f"The Signal-to-Noise Ratio (SNR) calculated from the DFT is: {snr_db:.6f} dB")
+
+# Display all plots
+plt.show()
+
+2c) ##use 2a code but just alter number of bits from 6 to 12 
+
+2d) ##CHANGE the code for different bits 6 and 12 and different cycles 30 and 100
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Create a figure with 5 subplots arranged vertically
+fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(8, 14))
+
+# Plot Labels
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+
+# Signal Parameters
+sampling_frequency = 400e6  # Sampling frequency in Hz (400 MHz)
+signal_frequency = 200e6   # Signal frequency in Hz (200 MHz)
+quantization_bits = 6      # Number of bits for quantization
+quantization_levels = 2 ** quantization_bits  # Number of quantization levels
+quantization_step = 2 / quantization_levels  # Quantization step size
+signal_amplitude = 1  # Amplitude of the signal
+
+# Time axis for the original continuous signal
+time_values = np.linspace(0, 10 * (1 / signal_frequency), 10000)
+
+# Sampled time axis for the signal (30 cycles)
+sampling_times = np.arange(0, 30 * (1 / signal_frequency), (1 / sampling_frequency))
+
+# Original continuous signal (sine wave)
+original_signal = signal_amplitude * np.sin(2 * np.pi * signal_frequency * time_values)
+
+# Sampled signal (discrete values at sampling times)
+sampled_signal = signal_amplitude * np.sin(2 * np.pi * signal_frequency * sampling_times)
+
+# Plot the original continuous signal
+ax1.plot(time_values, original_signal, color='blue')
+ax1.set_title('Original Continuous Signal')
+ax1.legend(['Original Signal'])
+ax1.set_xlabel('Time (s)')
+ax1.grid(True)
+
+# Plot the sampled signal
+ax2.stem(sampling_times, sampled_signal, basefmt=" ", use_line_collection=True, linefmt='blue', markerfmt='go')
+ax2.set_title('Sampled Signal')
+ax2.legend(['Sampled Signal'])
+ax2.set_xlabel('Time (s)')
+ax2.grid(True)
+
+# Quantization function
+def quantize_signal(input_signal, step_size):
+    """
+    Quantizes the input signal based on the given step size.
+    """
+    return np.round(input_signal / step_size) * step_size
+
+# Quantized version of the sampled signal
+quantized_signal = quantize_signal(sampled_signal, quantization_step)
+
+# Plot the quantized signal
+ax3.stem(sampling_times, quantized_signal, basefmt=" ", use_line_collection=True, linefmt='blue', markerfmt='go')
+ax3.set_title('Quantized Signal')
+ax3.legend(['Quantized Signal'])
+ax3.set_xlabel('Time (s)')
+ax3.grid(True)
+
+# Calculate the quantization error (difference between quantized signal and ideal quantization)
+ideal_quantized_signal = np.round(quantized_signal * (quantization_levels - 1) / 2) / (quantization_levels - 1) * 2
+quantization_error = quantized_signal - ideal_quantized_signal  # Error signal (quantization noise)
+
+# Apply a Hanning window to the quantization error
+hanning_window = np.hanning(len(quantization_error))  # Generate Hanning window
+windowed_error = hanning_window * quantization_error  # Apply window to error
+
+# Plot the windowed error signal
+ax4.plot(windowed_error, color='blue')
+ax4.set_title('Windowed Quantization Error (Hanning Window)')
+ax4.legend(['Windowed Error'])
+ax4.set_xlabel('Time (s)')
+ax4.grid(True)
+
+# Compute the power spectral density (PSD) of the quantization error
+error_length = len(quantization_error)
+error_fft = np.fft.fft(quantization_error)  # FFT of the error signal
+error_psd = np.abs(error_fft) ** 2 / error_length  # Power spectral density of the error
+frequency_axis = np.fft.fftfreq(error_length, 1 / sampling_frequency)  # Frequency axis for plotting
+
+# Plot the PSD of the quantization error
+ax5.plot(frequency_axis, error_psd, color='blue')
+ax5.set_title('Power Spectral Density (PSD) of Quantization Error')
+ax5.legend(['Quantization Error PSD'])
+ax5.set_xlabel('Frequency (Hz)')
+ax5.grid(True)
+
+# Adjust spacing between the subplots for better visualization
+fig.subplots_adjust(hspace=0.5)
+
+# Signal-to-Noise Ratio (SNR) Calculation
+signal_power = np.sum(quantized_signal ** 2) / error_length  # Signal power
+quantization_noise_power = np.sum(quantization_error ** 2) / error_length  # Quantization noise power
+snr_ratio = signal_power / quantization_noise_power  # SNR ratio
+snr_db = 10 * np.log10(snr_ratio)  # SNR in decibels
+
+# Print SNR result with 6 decimal places
+print(f"Calculated Signal-to-Noise Ratio (SNR) from the DFT: {snr_db:.6f} dB")
+
+# Display all plots
+plt.show()
+
+
