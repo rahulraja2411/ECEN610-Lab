@@ -1,0 +1,194 @@
+1a) 
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+
+M = 8
+f_center = 2.4e9
+C_s = 15.925e-12
+sampling_interval = 1 / (2 * f_center)
+y = sampling_interval / C_s
+
+num_coeff = y * np.array([1, 1, 1, 1, 1, 1, 1, 1])
+den_coeff = np.array([1])
+
+angular_freq, transfer_func = signal.freqz(num_coeff, den_coeff, worN=8001, whole=False)
+
+plt.figure()
+plt.plot((f_center * angular_freq) / (2 * np.pi), 10 * np.log10(np.abs(transfer_func)), 'r')
+plt.grid()
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Magnitude of H(z) (dB)")
+plt.show()
+
+
+1b)
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+
+M = 8
+f_center = 2.4e9
+C_s = 15.925e-12
+sampling_interval = 1 / (2 * f_center)
+y = sampling_interval / C_s
+
+num_coeff = y * np.array([1, 1, 1, 1, 1, 1, 1, 1])
+den_coeff = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1])
+
+angular_freq, transfer_func = signal.freqz(num_coeff, den_coeff, worN=8001, whole=False)
+
+plt.figure()
+plt.plot(((angular_freq * f_center) / (2 * np.pi)), 10 * np.log10(np.abs(transfer_func)), 'r')
+plt.grid()
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Magnitude of H(z) (dB)")
+plt.show()
+
+2b)
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+
+N = 8
+f_center = 2.4e9
+C_s = 15.925e-12
+sampling_interval = 1 / (2 * f_center)
+C_H = 15.425e-12
+C_R = 0.5e-12
+alpha1 = (C_H / (C_H + C_R))
+y = sampling_interval / C_s
+
+num_coeff = y * np.array([1, 1, 1, 1, 1, 1, 1, 1])
+den_coeff1 = np.array([1])
+den_coeff2 = np.array([1, 0, 0, 0, 0, 0, 0, 0, -alpha1])
+
+ang1, transfer_func1 = signal.freqz(num_coeff, den_coeff1, worN=5120, whole=False)
+ang2, transfer_func2 = signal.freqz(1, den_coeff2, worN=5120, whole=False)
+
+plt.figure()
+plt.plot((f_center * ang1) / (2 * np.pi), (10 * np.log10(np.abs(transfer_func1)) + 10 * np.log10(np.abs(transfer_func2))), 'r')
+plt.grid()
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Magnitude of H(z) (dB)")
+plt.show()
+
+3a)
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+import math
+N = 8
+f_center = 2.4e9
+C_s = 15.925e-12
+sampling_interval = 1 / (2 * f_center)
+C_H = 15.425e-12
+C_R = 0.5e-12
+alpha = (C_H / (C_H + C_R))
+
+print("alpha", alpha)
+print("1 - alpha", 1 - alpha)
+
+y = (sampling_interval) / C_s
+FIR1 = y * np.array([1, 1, 1, 1, 1, 1, 1, 1])
+FIR2 = np.array([0, 0, 0, 0, 0, 0, 0, 0, (1 - alpha)])
+FIR3 = np.array([1, 0, 0, 0, 0, 0, 0, 0, pow(alpha, 1), 0, 0, 0, 0, 0, 0, 0, pow(alpha, 2), 0, 0, 0, 0, 0, 0, 0, pow(alpha, 3)])
+IIR1 = np.array([1, 0, 0, 0, 0, 0, 0, 0, -alpha])
+
+deno = 1
+denominator = np.array([1, 0, 0, 0, 0, 0, 0, 0, -alpha])
+
+ang1, tf1 = signal.freqz(FIR1, 1, worN=80001, whole=False)
+ang2, tf2 = signal.freqz(FIR2, 1, worN=80001, whole=False)
+ang3, tf3 = signal.freqz(FIR3, 1, worN=80001, whole=False)
+ang4, tf4 = signal.freqz(1, IIR1, worN=80001, whole=False)
+
+plt.figure()
+plt.plot(((f_center * ang1) / (2 * np.pi)),
+         10 * np.log10(np.abs(tf1)) + 10 * np.log10(np.abs(tf2)) + 10 * np.log10(np.abs(tf3)) + 10 * np.log10(np.abs(tf4)), 'r')
+plt.grid()
+plt.xlabel("Frequency")
+plt.ylabel("H(z) (dB)")
+plt.show()
+
+3b)
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+import math
+N=8
+f_center = 2.4e9
+C_s = 15.925e-12
+sampling_interval= 1/(2*f_center)
+C_H = 15.425e-12
+C_R = 0.5e-12
+alpha = (C_H/(C_H+C_R))
+print("a ", alpha)
+print("1-a", 1-alpha)
+x = (sampling_interval)/C_s
+FIR1 = x*np.array([1,1,1,1,1,1,1,1])
+FIR2 = np.array([0,0,0,0,0,0,0,0,(1-alpha)])
+# FIR3 = np.array([1,1,1,1])
+FIR3 = np.array([1,0,0,0,0,0,0,0,pow(alpha,1),0,0,0,0,0,0,0,pow(alpha,2),0,0,0,0,0,0,0,pow(alpha,3)])
+IIR1 = np.array([1,0,0,0,0,0,0,0,-alpha])
+IIR2 = np.array([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1])
+deno = 1
+denominator = np.array([1,0,0,0,0,0,0,0,-alpha1])
+a1,tf1 = signal.freqz(FIR1, 1,worN = 80001, whole = False)
+a2, tf2 = signal.freqz(FIR2, 1,worN = 80001, whole = False)
+a3, tf3 = signal.freqz(FIR3, 1,worN = 80001, whole = False)
+a4, tf4 = signal.freqz(1, IIR1,worN = 80001, whole = False)
+a5, tf5 = signal.freqz(1, IIR2,worN = 80001, whole = False)
+plt.figure()
+plt.plot(((f_center*a1)/(2*np.pi)),
+10*np.log10(np.abs(tf1))+10*np.log10(np.abs(tf2))+10*np.log10(np.abs(tf3))+10*np.log10(np.abs(tf4))+
+10*np.log10(np.abs(tf5)) , 'r')
+plt.grid()
+plt.xlabel("Frequency")
+plt.ylabel("H(z) (dB)")
+plt.show()
+
+3c)
+from scipy import signal
+import matplotlib.pyplot as plt
+import numpy as np
+import math
+N=8
+f_center = 2.4e9
+C_s = 15.925e-12
+sampling_interval= 1/(2*f_center)
+C_H = 15.425e-12
+C_R = 0.5e-12
+alpha = (C_H/(C_H+C_R))
+print("a ", alpha)
+print("1-a", 1-alpha)
+CR_1 = C_R
+CR_2 = 2*C_R
+CR_3 = 3*C_R
+CR_4 = 4*C_R
+alpha1 = (C_H/(C_H+CR_1))
+alpha2 = (C_H/(C_H+CR_2))
+alpha3 = (C_H/(C_H+CR_3))
+alpha4 = (C_H/(C_H+CR_4))
+x = (sampling_interval)/C_s
+FIR1 = x*np.array([1,1,1,1,1,1,1,1])
+FIR2 = np.array([0,0,0,0,0,0,0,0,(1-alpha)])
+# FIR3 = np.array([1,1,1,1])
+FIR3 = np.array([alpha1,0,0,0,0,0,0,0,(alpha1*alpha2),0,0,0,0,0,0,0,(alpha1*alpha2*alpha3),0,0,0,0,0,0,0,(alpha1*alpha2*alpha3*alpha4)])
+IIR1 = np.array([1,0,0,0,0,0,0,0,-alpha])
+IIR2 = np.array([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1])
+deno = 1
+denominator = np.array([1,0,0,0,0,0,0,0,-alpha])
+a1,tf1 = signal.freqz(FIR1, 1,worN = 80001, whole = False)
+a2, tf2 = signal.freqz(FIR2, 1,worN = 80001, whole = False)
+a3, tf3 = signal.freqz(FIR3, 1,worN = 80001, whole = False)
+a4, tf4 = signal.freqz(1, IIR1,worN = 80001, whole = False)
+a5, tf5 = signal.freqz(1, IIR2,worN = 80001, whole = False)
+plt.figure()
+plt.plot(((f_center*a1)/(2*np.pi)),
+10*np.log10(np.abs(tf1))+10*np.log10(np.abs(tf2))+10*np.log10(np.abs(tf3))+10*np.log10(np.abs(tf4))+
+10*np.log10(np.abs(tf5)),'r')
+plt.grid()
+plt.xlabel("Frequency")
+plt.ylabel("H(z) (dB)")
+plt.show()
