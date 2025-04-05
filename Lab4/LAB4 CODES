@@ -1,0 +1,472 @@
+LAB4 CODES:
+
+1a)
+
+import matplotlib.pyplot as plt
+import numpy as np
+import math
+from scipy import signal
+
+
+# Define frequency and period of the original signal
+signal_freq = 1e9
+signal_period = 1 / signal_freq
+num_points_signal = 1000
+time_signal = np.linspace(0, signal_period, num_points_signal)
+input_signal = np.sin(2 * np.pi * signal_freq * time_signal)
+
+# Plot the input signal
+fig1, ax1 = plt.subplots()
+ax1.plot(time_signal, input_signal)
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Amplitude')
+ax1.set_title('Input Signal')
+
+# Sampling parameters
+sampling_freq = 10e9
+sampling_period = 1 / sampling_freq
+time_sampled = np.arange(0, 10 * signal_period, sampling_period)
+sampled_signal = np.sin(2 * np.pi * signal_freq * time_sampled)
+
+# Plot the sampled signal
+fig2, ax2 = plt.subplots()
+ax2.stem(time_sampled, sampled_signal)
+ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('Amplitude')
+ax2.set_title('Sampled Signal')
+
+# Sample and Hold Process (non-zero until 1 second)
+hold_signal_values = np.zeros(len(time_signal))  # Array to store the hold signal values
+num_sampling_loops = signal_period / sampling_period
+half_period_interval = num_points_signal / (2 * num_sampling_loops)
+pulse_index = half_period_interval - 1
+end_signal_value = 0
+
+# Loop to simulate sample and hold
+count = 0
+for sample_loop in range(0, int(num_sampling_loops)):
+    if sample_loop != 0:
+        pulse_index = sample_loop * (2 * half_period_interval)
+
+    for integral_instant in range(0, int(half_period_interval)):
+        current_time_instant = time_signal[integral_instant]
+        exp_decay = math.exp(-(current_time_instant / (10 * (1e-12))))  # Exponential decay factor
+
+        # Get the sample at the current pulse
+        current_signal_value = input_signal[int(pulse_index)]
+
+        # Update the hold signal array with the calculated hold values
+        hold_signal_values[count] = end_signal_value + ((current_signal_value - end_signal_value) * (1 - exp_decay))
+        count += 1
+
+        # Update the end signal for the next iteration
+        end_signal_value = hold_signal_values[count - 1]
+
+    # Ensure the amplitude is non-zero until 1 second
+    if time_signal[count-1] > 1:
+        break
+
+# Plot the output signal after the sample and hold process
+fig3, ax3 = plt.subplots()
+ax3.plot(time_signal[:count], hold_signal_values[:count])  # Only plot until 1 second
+ax3.set_xlabel('Time (s)')
+ax3.set_ylabel('Amplitude')
+ax3.set_title('Sample and Hold Output Signal')
+
+plt.show()
+
+
+2b)
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+# Define signal frequencies
+freq_1 = 0.2 * (1e9)
+period_1 = 1 / freq_1
+freq_2 = 0.58 * (1e9)
+freq_3 = 1 * (1e9)
+freq_4 = 1.7 * (1e9)
+freq_5 = 2.4 * (1e9)
+
+# Original signal parameters
+num_points_orig = 1000  # Number of data points for the original signal
+time_orig = np.linspace(0, period_1, num_points_orig)  # Time values for the original signal
+
+# Create the multi-tone signal
+signal_1 = 0.25 * np.sin(2 * np.pi * freq_1 * time_orig)
+signal_2 = 0.25 * np.sin(2 * np.pi * freq_2 * time_orig)
+signal_3 = 0.25 * np.sin(2 * np.pi * freq_3 * time_orig)
+signal_4 = 0.25 * np.sin(2 * np.pi * freq_4 * time_orig)
+signal_5 = 0.25 * np.sin(2 * np.pi * freq_5 * time_orig)
+
+# Sum of all signals to create the multi-tone signal
+multi_tone_signal = signal_1 + signal_2 + signal_3 + signal_4 + signal_5
+
+# Plot the original multi-tone signal
+fig1, ax1 = plt.subplots()
+ax1.plot(time_orig, multi_tone_signal)
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Amplitude')
+ax1.set_title('Multi-tone Signal')
+
+# Sampling parameters
+sampling_freq = 10e9  # Sampling frequency (10 GHz)
+sampling_period = 1 / sampling_freq  # Sampling period
+time_sampled = np.arange(sampling_period / 2, period_1, sampling_period)  # Time values for the sampled signal
+
+# Create the sampled signals for each frequency
+sampled_signal_1 = 0.25 * np.sin(2 * np.pi * freq_1 * time_sampled)
+sampled_signal_2 = 0.25 * np.sin(2 * np.pi * freq_2 * time_sampled)
+sampled_signal_3 = 0.25 * np.sin(2 * np.pi * freq_3 * time_sampled)
+sampled_signal_4 = 0.25 * np.sin(2 * np.pi * freq_4 * time_sampled)
+sampled_signal_5 = 0.25 * np.sin(2 * np.pi * freq_5 * time_sampled)
+
+# Sum of sampled signals
+sampled_signal = sampled_signal_1 + sampled_signal_2 + sampled_signal_3 + sampled_signal_4 + sampled_signal_5
+
+# Plot the sampled signal
+fig2, ax2 = plt.subplots()
+ax2.stem(time_sampled, sampled_signal, basefmt=" ", use_line_collection=True)
+ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('Amplitude')
+ax2.set_title('Sampled Signal')
+
+# Sample and Hold Process
+hold_values = [0 for _ in range(num_points_orig)]  # Array to store the sample and hold values
+num_sampling_loops = period_1 / sampling_period  # Number of sampling loops
+half_period_interval = num_points_orig / (2 * num_sampling_loops)  # Interval for the hold process
+pulse_index = half_period_interval - 1  # Initial pulse index
+previous_value = 0  # Initial value for signal hold
+
+# Loop to simulate sample and hold
+index = 0
+for sampling_loop in range(int(num_sampling_loops)):
+    if sampling_loop != 0:
+        pulse_index = sampling_loop * (2 * half_period_interval)
+
+    for integral_instant in range(int(half_period_interval)):
+        time_instant = time_orig[integral_instant]
+        exp_decay = math.exp(-(time_instant / (10 * (1e-12))))  # Exponential decay factor
+
+        # Get the sample at the current pulse
+        sample_value = multi_tone_signal[int(pulse_index)]
+
+        # Update the sample and hold values based on exponential decay
+        hold_values[index] = previous_value + ((sample_value - previous_value) * (1 - exp_decay))
+        index += 1
+
+    # Update the previous signal for the next iteration
+    for _ in range(int(half_period_interval)):
+        previous_value = hold_values[index - 1]
+        hold_values[index] = previous_value
+        index += 1
+
+# Plot the output signal after the sample and hold process
+fig3, ax3 = plt.subplots()
+ax3.plot(time_orig, hold_values)
+ax3.set_xlabel('Time (s)')
+ax3.set_ylabel('Amplitude')
+ax3.set_title('Output Signal After Sample and Hold')
+
+# Show all the plots
+plt.show()
+
+3a)
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+# Define signal frequencies
+freq_1 = 0.2 * (1e9)
+period_1 = 1 / freq_1
+freq_2 = 0.58 * (1e9)
+freq_3 = 1 * (1e9)
+freq_4 = 1.7 * (1e9)
+freq_5 = 2.4 * (1e9)
+
+# Original signal parameters
+num_points_orig = 1000  # Number of data points for the original signal
+time_orig = np.linspace(0, period_1, num_points_orig)  # Time values for the original signal
+
+# Create the multi-tone signal
+signal_1 = 0.25 * np.sin(2 * np.pi * freq_1 * time_orig)
+signal_2 = 0.25 * np.sin(2 * np.pi * freq_2 * time_orig)
+signal_3 = 0.25 * np.sin(2 * np.pi * freq_3 * time_orig)
+signal_4 = 0.25 * np.sin(2 * np.pi * freq_4 * time_orig)
+signal_5 = 0.25 * np.sin(2 * np.pi * freq_5 * time_orig)
+
+# Sum of all signals to create the multi-tone signal
+multi_tone_signal = signal_1 + signal_2 + signal_3 + signal_4 + signal_5
+
+# Sampling parameters
+sampling_freq = 10e9  # Sampling frequency (10 GHz)
+sampling_period = 1 / sampling_freq  # Sampling period
+time_sampled = np.arange(sampling_period / 2, period_1, sampling_period)  # Time values for the sampled signal
+
+# Create the sampled signals for each frequency
+sampled_signal_1 = 0.25 * np.sin(2 * np.pi * freq_1 * time_sampled)
+sampled_signal_2 = 0.25 * np.sin(2 * np.pi * freq_2 * time_sampled)
+sampled_signal_3 = 0.25 * np.sin(2 * np.pi * freq_3 * time_sampled)
+sampled_signal_4 = 0.25 * np.sin(2 * np.pi * freq_4 * time_sampled)
+sampled_signal_5 = 0.25 * np.sin(2 * np.pi * freq_5 * time_sampled)
+
+# Sum of sampled signals
+sampled_signal = sampled_signal_1 + sampled_signal_2 + sampled_signal_3 + sampled_signal_4 + sampled_signal_5
+
+# Plot the original multi-tone signal
+fig1, ax1 = plt.subplots()
+ax1.plot(time_orig, multi_tone_signal)
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Amplitude')
+ax1.set_title('Multi-tone Signal')
+
+# Plot the sampled signal
+fig2, ax2 = plt.subplots()
+ax2.stem(time_sampled, sampled_signal, basefmt=" ", use_line_collection=True)
+ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('Amplitude')
+ax2.set_title('Sampled Signal')
+
+# Sample and Hold Process
+hold_values = [0 for _ in range(num_points_orig)]  # Array to store the sample and hold values
+num_sampling_loops = period_1 / sampling_period  # Number of sampling loops
+half_period_interval = num_points_orig / (2 * num_sampling_loops)  # Interval for the hold process
+pulse_index = half_period_interval - 1  # Initial pulse index
+previous_value = 0  # Initial value for signal hold
+
+# Loop to simulate sample and hold
+index = 0
+for sampling_loop in range(int(num_sampling_loops)):
+    if sampling_loop != 0:
+        pulse_index = sampling_loop * (2 * half_period_interval)
+
+    for integral_instant in range(int(half_period_interval)):
+        time_instant = time_orig[integral_instant]
+        exp_decay = math.exp(-(time_instant / (10 * (1e-12))))  # Exponential decay factor
+
+        # Get the sample at the current pulse
+        sample_value = multi_tone_signal[int(pulse_index)]
+
+        # Update the sample and hold values based on exponential decay
+        hold_values[index] = previous_value + ((sample_value - previous_value) * (1 - exp_decay))
+        index += 1
+
+    # Update the previous signal for the next iteration
+    for _ in range(int(half_period_interval)):
+        previous_value = hold_values[index - 1]
+        hold_values[index] = previous_value
+        index += 1
+
+# Now, repeat the pattern from 2.5s to 5s (same as 0 to 2.5s)
+extended_time = np.linspace(0, 5, len(hold_values) * 2)  # Extend time to 5 seconds
+extended_hold_values = np.concatenate([hold_values, hold_values])  # Repeat the signal pattern
+
+# Plot the output signal after the sample and hold process (extended)
+fig3, ax3 = plt.subplots()
+ax3.plot(extended_time, extended_hold_values)
+ax3.set_xlabel('Time (s)')
+ax3.set_ylabel('Amplitude')
+ax3.set_title('Output Signal After Sample and Hold')
+
+# Sample the output signal at the sampled time instants
+s_h_sampled = np.zeros(len(time_sampled))
+for i in range(len(time_sampled)):
+    s_h_sampled[i] = extended_hold_values[i]
+
+# Plot the sampled output signal after sample and hold
+fig4, ax4 = plt.subplots()
+ax4.stem(time_sampled, s_h_sampled, basefmt=" ", use_line_collection=True)
+ax4.set_xlabel('Time (s)')
+ax4.set_ylabel('Amplitude')
+ax4.set_title('Sampled Signal After Sample and Hold')
+
+# Compute the error signal
+error_signal = s_h_sampled - sampled_signal
+
+# Plot the error signal
+fig5, ax5 = plt.subplots()
+ax5.plot(time_sampled, error_signal)
+ax5.set_xlabel('Time (s)')
+ax5.set_ylabel('Amplitude')
+ax5.set_title('Error Signal')
+
+# Compute the variance of the error signal
+variance_error = np.mean(np.square(error_signal))
+print("Error signal variance = ", variance_error)
+
+# Show all the plots
+plt.show()
+
+3b)
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Define system parameters
+frequencies = np.array([0.2, 0.58, 1, 1.7, 2.4])  # input signal frequencies in GHz
+fs = 10  # sampling frequency in GHz
+N = 100000  # number of samples
+sigma2 = 0.1 ** 2  # variance of sampling error
+
+# Generate input signal
+t = np.arange(N) / fs
+abc = frequencies.reshape(-1, 1)
+x = np.sin(2 * np.pi * frequencies.reshape(-1, 1) * t).sum(axis=0)
+
+# Generate ADC output
+q = 0.1  # quantization step size
+y = np.round(x / q) * q
+
+# Design FIR filter
+M_values = np.arange(2, 11)  # number of filter taps
+var_ratio = np.zeros_like(M_values, dtype=float)
+
+for i, M in enumerate(M_values):
+    # Generate H and E matrices
+    H = np.zeros((N - M, M))
+    for j in range(M):
+        H[:, j] = y[M - j - 1:N - j - 1]
+
+    E = y[M:] - x[M:]
+
+    # Compute filter coefficients using least squares
+    W = np.linalg.pinv(H.T @ H) @ H.T @ E
+
+    # Compute estimated sampling error and corrected signal
+    e_hat = H @ W
+    y_corr = y[M:] + e_hat
+
+    # Compute error signal
+    E = y_corr - x[M:]
+
+    # Compute variance ratio
+    var_ratio[i] = np.var(E) / (sigma2 / 12)
+
+# Plot variance ratio vs M
+plt.plot(M_values, var_ratio)
+plt.xlabel('Taps')
+plt.ylabel('Variance of Error / Variance of Quantization Noise')
+plt.title('Ratio of Variance of E to Q vs M (Number of Taps)')
+plt.grid(False)
+plt.show()
+
+4a)
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+# Define input signal parameters
+f_in = 1e9  # 1 GHz input frequency
+t_in = 1 / f_in  # Period of input signal
+orig_signal_points = 10000
+t = np.linspace(0, t_in, orig_signal_points)
+Y = np.sin(2 * np.pi * f_in * t)
+
+# Plot input signal
+fig1, ax1 = plt.subplots()
+ax1.plot(t, Y)
+ax1.set_xlabel('Time (s)')
+ax1.set_ylabel('Amplitude')
+ax1.set_title('Input signal')
+
+# Sampling parameters
+fs = 10e9  # 10 GHz sampling frequency
+Ts = 1 / fs
+sampling_loops = t_in / Ts
+interval = int(orig_signal_points / sampling_loops)
+
+# Generate ideal sampled signal
+ideal_sample = np.zeros(orig_signal_points)
+ideal_sample[::interval] = Y[::interval]
+
+# Plot ideal sampled signal
+fig2, ax2 = plt.subplots()
+ax2.plot(t, ideal_sample)
+ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('Amplitude')
+ax2.set_title('Sampled signal without mismatches')
+
+# Apply mismatches
+offset_error = 0.1
+gain_mismatch = 0.707
+time_mismatch = 2e-12  # 2 ps time mismatch
+phase_offset = 10  # Phase mismatch
+
+interval_mismatch = int(time_mismatch / (t_in / orig_signal_points))
+
+practical_sample = np.zeros(orig_signal_points)
+for sampling_instant in range(0, orig_signal_points, interval + interval_mismatch):
+    practical_sample[sampling_instant] = Y[sampling_instant] * gain_mismatch
+
+# Plot practical sampled signal with mismatches
+fig3, ax3 = plt.subplots()
+ax3.plot(t, practical_sample)
+ax3.set_xlabel('Time (s)')
+ax3.set_ylabel('Amplitude')
+ax3.set_title('Sampled signal with time, offset, and gain mismatch')
+
+# Sum of ideal and mismatched sampled signals
+result_signal = ideal_sample + practical_sample
+
+# Plot resultant signal
+fig4, ax4 = plt.subplots()
+ax4.plot(t, result_signal)
+ax4.set_xlabel('Time (s)')
+ax4.set_ylabel('Amplitude')
+ax4.set_title('Resultant signal (both signals added)')
+
+# Define message signal for SNR computation
+message_frequency = 1e9  # 1 GHz
+message_time = 1 / message_frequency
+message_peak_amplitude = 1
+sampling_frequency = 10e9  # 10 GHz
+sampling_time = 1 / sampling_frequency
+cycle = 100
+
+message_t = np.arange(0, cycle * message_time, sampling_time)
+message_signal = message_peak_amplitude * np.sin(2 * np.pi * message_frequency * message_t)
+
+# Compute SNR and noise
+SNR_db = -10
+power = message_signal**2
+signal_avg_power = np.mean(power)
+signal_avg_power_db = 10 * math.log10(signal_avg_power)
+
+noise_db = signal_avg_power_db - SNR_db
+noise_variance = 10**(noise_db / 10)
+mean_noise = 0
+noise = np.random.normal(mean_noise, np.sqrt(noise_variance), len(message_signal))
+
+# Add noise to signal
+noise_signal = message_signal + noise
+
+# Compute FFT and PSD
+n = len(message_t)
+fft_noise = np.fft.fft(noise_signal, n)
+PSD = (fft_noise * np.conj(fft_noise)) / n
+freq = (1 / (sampling_time * n)) * np.arange(n)
+L = np.arange(1, int(n / 2), dtype=int)
+
+# Plot Power Spectral Density (PSD)
+fig5, ax5 = plt.subplots()
+ax5.stem(freq[L], np.real(PSD[L] / cycle))
+ax5.set_xlabel('Frequency (Hz)')
+ax5.set_ylabel('Power Spectral Density')
+ax5.set_title('Resultant signal PSD')
+
+# Compute SNDR
+D = 7
+signal_power = np.var(message_signal)
+noise_power = np.var(noise_signal - message_signal)
+snr = 10 * np.log10(signal_power / noise_power)
+sndr = snr - (6.02 * D) + 1.76  # Corrected SNDR formula
+
+# Plot SNDR
+fig6, ax6 = plt.subplots()
+ax6.axhline(y=sndr, color='r', linestyle='-')  # Fixed: SNDR is a scalar value
+ax6.set_xlabel('Frequency (Hz)')
+ax6.set_ylabel('SNDR (dB)')
+ax6.set_title('SNDR')
+
+plt.show()
+
