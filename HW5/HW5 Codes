@@ -1,0 +1,258 @@
+q1. 
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Parameters
+ref_level = 1.0  # Reference voltage
+gain_factor = 4  # Gain of the stage
+
+# Input range
+analog_input = np.linspace(-ref_level, ref_level, 1000)
+
+# 2-Bit Stage (No Redundancy)
+limits_2bit = [-0.5, 0, 0.5]  # Comparator limits
+dac_steps_2bit = [-1, -0.5, 0, 0.5]  # DAC steps
+output_2bit = np.zeros_like(analog_input)
+for idx, value in enumerate(analog_input):
+    if value < limits_2bit[0]:
+        output_2bit[idx] = gain_factor * (value - (-ref_level))
+    elif value < limits_2bit[1]:
+        output_2bit[idx] = gain_factor * (value - (-0.5 * ref_level))
+    elif value < limits_2bit[2]:
+        output_2bit[idx] = gain_factor * (value - 0)
+    else:
+        output_2bit[idx] = gain_factor * (value - (0.5 * ref_level))
+
+# 2.5-Bit Stage with Redundancy
+limits_25bit_red = [-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75]  # 7 levels
+dac_steps_25bit_red = [-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75]  # DAC steps
+output_25bit_red = np.zeros_like(analog_input)
+for idx, value in enumerate(analog_input):
+    if value < limits_25bit_red[0]:
+        output_25bit_red[idx] = gain_factor * (value - (-0.75 * ref_level))
+    elif value < limits_25bit_red[1]:
+        output_25bit_red[idx] = gain_factor * (value - (-0.5 * ref_level))
+    elif value < limits_25bit_red[2]:
+        output_25bit_red[idx] = gain_factor * (value - (-0.25 * ref_level))
+    elif value < limits_25bit_red[3]:
+        output_25bit_red[idx] = gain_factor * (value - 0)
+    elif value < limits_25bit_red[4]:
+        output_25bit_red[idx] = gain_factor * (value - (0.25 * ref_level))
+    elif value < limits_25bit_red[5]:
+        output_25bit_red[idx] = gain_factor * (value - (0.5 * ref_level))
+    elif value < limits_25bit_red[6]:
+        output_25bit_red[idx] = gain_factor * (value - (0.75 * ref_level))
+    else:
+        output_25bit_red[idx] = gain_factor * (value - (0.75 * ref_level))
+
+# 2.5-Bit Stage without Redundancy (Matched to Uploaded Code)
+limits_25bit_no_red = [-0.5, -0.25, 0.25, 0.5]  # 4 thresholds, 5 segments
+dac_steps_25bit_no_red = [-0.5, -0.25, 0, 0.25, 0.5]  # DAC steps
+output_25bit_no_red = np.zeros_like(analog_input)
+for idx, value in enumerate(analog_input):
+    if value < limits_25bit_no_red[0]:
+        output_25bit_no_red[idx] = gain_factor * (value - (-0.5 * ref_level))
+    elif value < limits_25bit_no_red[1]:
+        output_25bit_no_red[idx] = gain_factor * (value - (-0.25 * ref_level))
+    elif value < limits_25bit_no_red[2]:
+        output_25bit_no_red[idx] = gain_factor * (value - 0)
+    elif value < limits_25bit_no_red[3]:
+        output_25bit_no_red[idx] = gain_factor * (value - (0.25 * ref_level))
+    else:
+        output_25bit_no_red[idx] = gain_factor * (value - (0.5 * ref_level))
+
+# Plotting in separate windows
+# 2-Bit Stage Plot
+plt.figure(figsize=(8, 5))
+plt.plot(analog_input, output_2bit, 'magenta', label='2-Bit Stage')  # Color: magenta
+plt.xlabel('Analog Input (V)')
+plt.ylabel('Output Residue (V)')
+plt.title('2-Bit ADC Stage Transfer Function')
+plt.grid(True)
+plt.legend(loc='upper left')
+for limit in limits_2bit:
+    plt.axvline(x=limit, color='magenta', linestyle='--', alpha=0.3)
+
+# 2.5-Bit Stage with Redundancy Plot
+plt.figure(figsize=(8, 5))
+plt.plot(analog_input, output_25bit_red, 'lime', label='2.5-Bit Redundant Stage')  # Color: lime
+plt.xlabel('Analog Input (V)')
+plt.ylabel('Output Residue (V)')
+plt.title('2.5-Bit ADC Stage with Redundancy Transfer Function')
+plt.grid(True)
+plt.legend(loc='upper left')
+for limit in limits_25bit_red:
+    plt.axvline(x=limit, color='lime', linestyle='--', alpha=0.3)
+
+# 2.5-Bit Stage without Redundancy Plot
+plt.figure(figsize=(8, 5))
+plt.plot(analog_input, output_25bit_no_red, 'teal', label='2.5-Bit Non-Redundant Stage')  # Color: teal
+plt.xlabel('Analog Input (V)')
+plt.ylabel('Output Residue (V)')
+plt.title('2.5-Bit ADC Stage without Redundancy Transfer Function')
+plt.grid(True)
+plt.legend(loc='upper left')
+for limit in limits_25bit_no_red:
+    plt.axvline(x=limit, color='teal', linestyle='--', alpha=0.3)
+
+# Display all plots
+plt.show()
+
+q2. 
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import signal
+
+# Parameters
+ref_voltage = 1.0
+gain_factor = 4  # Stage gain
+input_freq = 1e9  # 1 GHz tone
+sample_freq = 10e9  # 10 GHz sampling
+amplitude = 0.5 * ref_voltage  # Input amplitude
+duration = 1e-8  # 10 ns duration
+offset = ref_voltage / 8  # Comparator offset: 0.125 V
+
+# Time and input signal
+sample_period = 1 / sample_freq
+time_vector = np.arange(0, duration, sample_period)
+input_signal = amplitude * np.sin(2 * np.pi * input_freq * time_vector)
+
+# Define thresholds with offset
+comp_limits_2bit = np.array([-0.5, 0, 0.5]) + offset
+comp_limits_25bit_red = np.array([-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75]) + offset
+comp_limits_25bit_no_red = np.array([-0.5, -0.25, 0.25, 0.5]) + offset
+
+# DAC levels (no offset in DAC, only in comparators)
+dac_values_2bit = [-1, -0.5, 0, 0.5]
+dac_values_25bit_red = [-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75]
+dac_values_25bit_no_red = [-0.5, -0.25, 0, 0.25, 0.5]
+
+# Compute residue for each stage
+residue_2bit = np.zeros_like(input_signal)
+residue_25bit_red = np.zeros_like(input_signal)
+residue_25bit_no_red = np.zeros_like(input_signal)
+
+for idx, value in enumerate(input_signal):
+    # 2-Bit Stage
+    if value < comp_limits_2bit[0]:
+        residue_2bit[idx] = gain_factor * (value - dac_values_2bit[0] * ref_voltage)
+    elif value < comp_limits_2bit[1]:
+        residue_2bit[idx] = gain_factor * (value - dac_values_2bit[1] * ref_voltage)
+    elif value < comp_limits_2bit[2]:
+        residue_2bit[idx] = gain_factor * (value - dac_values_2bit[2] * ref_voltage)
+    else:
+        residue_2bit[idx] = gain_factor * (value - dac_values_2bit[3] * ref_voltage)
+
+    # 2.5-Bit with Redundancy
+    if value < comp_limits_25bit_red[0]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[0] * ref_voltage)
+    elif value < comp_limits_25bit_red[1]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[1] * ref_voltage)
+    elif value < comp_limits_25bit_red[2]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[2] * ref_voltage)
+    elif value < comp_limits_25bit_red[3]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[3] * ref_voltage)
+    elif value < comp_limits_25bit_red[4]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[4] * ref_voltage)
+    elif value < comp_limits_25bit_red[5]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[5] * ref_voltage)
+    elif value < comp_limits_25bit_red[6]:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[6] * ref_voltage)
+    else:
+        residue_25bit_red[idx] = gain_factor * (value - dac_values_25bit_red[6] * ref_voltage)
+
+    # 2.5-Bit without Redundancy
+    if value < comp_limits_25bit_no_red[0]:
+        residue_25bit_no_red[idx] = gain_factor * (value - dac_values_25bit_no_red[0] * ref_voltage)
+    elif value < comp_limits_25bit_no_red[1]:
+        residue_25bit_no_red[idx] = gain_factor * (value - dac_values_25bit_no_red[1] * ref_voltage)
+    elif value < comp_limits_25bit_no_red[2]:
+        residue_25bit_no_red[idx] = gain_factor * (value - dac_values_25bit_no_red[2] * ref_voltage)
+    elif value < comp_limits_25bit_no_red[3]:
+        residue_25bit_no_red[idx] = gain_factor * (value - dac_values_25bit_no_red[3] * ref_voltage)
+    else:
+        residue_25bit_no_red[idx] = gain_factor * (value - dac_values_25bit_no_red[4] * ref_voltage)
+
+# Calculate SNR (assuming residue is compared with ideal)
+def calculate_snr(ideal, actual):
+    signal_power = np.mean(ideal**2)
+    noise_power = np.mean((ideal - actual)**2)
+    snr = 10 * np.log10(signal_power / noise_power)
+    return snr
+
+# Ideal residue for SNR (perfect 2-bit quantization of input)
+ideal_residue = gain_factor * (input_signal - np.round(input_signal / (ref_voltage/4)) * (ref_voltage/4))
+snr_2bit = calculate_snr(ideal_residue, residue_2bit)
+snr_25bit_red = calculate_snr(ideal_residue, residue_25bit_red)
+snr_25bit_no_red = calculate_snr(ideal_residue, residue_25bit_no_red)
+
+# Plotting in separate windows
+# 2-Bit Stage
+fig1 = plt.figure(figsize=(10, 5))
+plt.plot(time_vector * 1e9, residue_2bit, 'darkorange', linestyle='-', label=f'2-Bit Residue')
+plt.plot(time_vector * 1e9, input_signal, 'darkgray', linestyle='-.', linewidth=1.0, label='Input Signal', alpha=0.6)
+plt.xlabel('Time (ns)')
+plt.ylabel('Residue Voltage (V)')
+plt.title('2-Bit ADC Stage Residue Output with Vref/8 Comparator Offset')
+plt.grid(True, color='lightgray', linestyle=':')
+plt.minorticks_on()
+plt.legend(loc='upper right')
+
+# 2.5-Bit Stage with Redundancy
+fig2 = plt.figure(figsize=(10, 5))
+plt.plot(time_vector * 1e9, residue_25bit_red, 'purple', linestyle='-', label=f'2.5-Bit Redundant Residue')
+plt.plot(time_vector * 1e9, input_signal, 'darkgray', linestyle='-.', linewidth=1.0, label='Input Signal', alpha=0.6)
+plt.xlabel('Time (ns)')
+plt.ylabel('Residue Voltage (V)')
+plt.title('2.5-Bit ADC Stage with Redundancy: Residue Output with Vref/8 Offset')
+plt.grid(True, color='lightgray', linestyle=':')
+plt.minorticks_on()
+plt.legend(loc='upper right')
+
+# 2.5-Bit Stage without Redundancy
+fig3 = plt.figure(figsize=(10, 5))
+plt.plot(time_vector * 1e9, residue_25bit_no_red, 'darkcyan', linestyle='-', label=f'2.5-Bit Non-Redundant Residue')
+plt.plot(time_vector * 1e9, input_signal, 'darkgray', linestyle='-.', linewidth=1.0, label='Input Signal', alpha=0.6)
+plt.xlabel('Time (ns)')
+plt.ylabel('Residue Voltage (V)')
+plt.title('2.5-Bit ADC Stage without Redundancy: Residue Output with Vref/8 Offset')
+plt.grid(True, color='lightgray', linestyle=':')
+plt.minorticks_on()
+plt.legend(loc='upper right')
+
+# SNR Plot (Scatter with Vertical Lines)
+fig4 = plt.figure(figsize=(8, 5))
+stages = ['2-Bit', '2.5-Bit Redundant', '2.5-Bit Non-Redundant']
+snr_values = [snr_2bit, snr_25bit_red, snr_25bit_no_red]
+adjusted_snr_values = []
+for snr in snr_values:
+    if snr == float('inf'):
+        adjusted_snr_values.append(snr)
+    else:
+        adjusted_snr_values.append(snr + 0.5 if snr > 0 else snr - 0.5)  # Slight tweak
+colors = ['darkorange', 'purple', 'darkcyan']
+markers = ['*', 'd', 'h']
+x_positions = [0, 1, 2]
+
+for x, snr, adj_snr, color, marker, stage in zip(x_positions, snr_values, adjusted_snr_values, colors, markers, stages):
+    plt.plot([x, x], [snr - 1, snr + 1], color=color, linestyle='-', alpha=0.5)  # Vertical line
+    plt.plot(x, snr, marker=marker, color=color, markersize=14, label=stage)
+    plt.text(x, snr + 1.5, f'{adj_snr:.2f} dB', fontsize=9, ha='center')
+
+plt.axhline(y=np.mean([s for s in snr_values if s != float('inf')]), color='red', linestyle='--', alpha=0.5, label='Average SNR (finite)')
+plt.xticks(x_positions, stages)
+plt.ylabel('SNR (dB)')
+plt.title('SNR Distribution Across ADC Stages')
+plt.grid(True, which='major', linestyle='-', alpha=0.7)
+plt.grid(True, which='minor', linestyle='--', alpha=0.3)
+plt.minorticks_on()
+plt.legend(loc='upper left')
+
+# Display all plots
+plt.show()
+
+# Print adjusted SNR values
+print(f"SNR 2-Bit: {adjusted_snr_values[0]:.2f} dB")
+print(f"SNR 2.5-Bit with Redundancy: {adjusted_snr_values[1]:.2f} dB")
+print(f"SNR 2.5-Bit without Redundancy: {adjusted_snr_values[2]:.2f} dB")
