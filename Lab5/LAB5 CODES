@@ -1,0 +1,437 @@
+3a)
+
+import matplotlib.pyplot as plt
+from adjustText import adjust_text
+import numpy as np
+
+# Digital codes (X-axis)
+digital_codes = [0, 1, 2, 3, 4, 5, 6, 7]
+
+# Corresponding voltage levels
+measured_output = [-0.01, 0.105, 0.195, 0.28, 0.37, 0.48, 0.6, 0.75]
+ideal_output = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+
+# Create figure and axis
+fig, ax = plt.subplots()
+
+# Plot measured and ideal outputs
+ax.plot(digital_codes, measured_output, marker='o', markersize=5, markerfacecolor='orange', label='Measured Output')
+ax.plot(digital_codes, ideal_output, marker='o', markersize=5, markerfacecolor='blue', label='Ideal Output')
+
+# Axis ticks
+plt.xticks(np.arange(0, 8, 1))
+plt.yticks(np.arange(-0.1, 0.8, 0.1))
+
+# Annotate each point with its value
+measured_labels = [
+    ax.text(digital_codes[i], measured_output[i], measured_output[i], size=12, color='orange', ha='left')
+    for i in range(len(digital_codes))
+]
+ideal_labels = [
+    ax.text(digital_codes[i], ideal_output[i], ideal_output[i], size=12, color='blue', ha='left')
+    for i in range(len(digital_codes))
+]
+
+# Adjust text to avoid overlap
+adjust_text(measured_labels + ideal_labels)
+
+# Labels and title
+plt.xlabel('3-bit Digital Input Codes')
+plt.ylabel('Analog Output Voltage (V)')
+plt.title('Comparison of Measured vs Ideal DAC Output Levels')
+plt.legend()
+plt.show()
+
+3b)
+import matplotlib.pyplot as plt
+from adjustText import adjust_text
+import numpy as np
+
+# Input digital codes (X-axis values)
+digital_inputs = [0, 1, 2, 3, 4, 5, 6, 7]
+
+# Measured and ideal output voltage values
+measured_voltages = [-0.01, 0.105, 0.195, 0.28, 0.37, 0.48, 0.6, 0.75]
+ideal_voltages = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+
+# Apply rounding and correction to measured values
+for i in range(len(measured_voltages)):
+    measured_voltages[i] = round(round(measured_voltages[i], 2) + 0.01, 2)
+    ideal_voltages[i] = round(ideal_voltages[i], 2)
+
+# Create the figure and axis
+fig, ax = plt.subplots()
+
+# Plotting the corrected measured values
+ax.plot(digital_inputs, measured_voltages, marker="o", markersize=5, markerfacecolor="orange")
+
+# Plotting the ideal DAC output values
+ax.plot(digital_inputs, ideal_voltages, marker="o", markersize=5, markerfacecolor="blue")
+
+# Set X and Y ticks
+plt.xticks(np.arange(0, 8, 1))
+plt.yticks(np.arange(-0.1, 0.8, 0.1))
+
+# Annotate measured voltage values
+measured_labels = [
+    ax.text(digital_inputs[i], measured_voltages[i], measured_voltages[i],
+            size=12, color='orange', ha='left')
+    for i in range(len(digital_inputs))
+]
+
+# Annotate ideal voltage values
+ideal_labels = [
+    ax.text(digital_inputs[i], ideal_voltages[i], ideal_voltages[i],
+            size=12, color='blue', ha='left')
+    for i in range(len(digital_inputs))
+]
+
+# Adjust text positions to avoid overlap
+adjust_text(measured_labels + ideal_labels)
+
+# Label the axes and title
+plt.xlabel('Digital Input (3-bit Code)')
+plt.ylabel('Voltage Output (V)')
+plt.title('Corrected vs Ideal Output Voltage Levels')
+
+# Display the plot
+plt.show()
+
+3c)
+import matplotlib.pyplot as plt
+from adjustText import adjust_text
+import numpy as np
+
+# Digital input values
+digital_codes = [0, 1, 2, 3, 4, 5, 6, 7]
+
+# Step size and endpoint correction factor
+step_size = 0.1
+endpoint_scale = 0.7 / 0.76
+
+# Raw voltage outputs
+measured_voltage = [-0.01, 0.105, 0.195, 0.28, 0.37, 0.48, 0.6, 0.75]
+ideal_voltage = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+
+# Lists for DNL and INL
+dnl_values = []
+inl_values = []
+
+# Apply endpoint correction
+for i in range(len(measured_voltage)):
+    measured_voltage[i] = round((round(measured_voltage[i], 2) + 0.01) * endpoint_scale, 3)
+    ideal_voltage[i] = round(ideal_voltage[i], 3)
+
+    if i == 0:
+        dnl_values.append(0)
+    else:
+        dnl = (measured_voltage[i] - measured_voltage[i - 1] - step_size) / step_size
+        dnl_values.append(round(dnl, 2))
+
+# Compute INL as cumulative sum of DNL
+for i in range(len(dnl_values)):
+    inl = sum(dnl_values[:i + 1]) if i != 0 else 0
+    inl_values.append(inl)
+
+# ====== PLOT 1: Measured vs Ideal Output ======
+fig1, ax1 = plt.subplots()
+ax1.plot(digital_codes, measured_voltage, marker="o", markersize=5, markerfacecolor="crimson", label='Corrected Measured')
+ax1.plot(digital_codes, ideal_voltage, marker="o", markersize=5, markerfacecolor="seagreen", label='Ideal')
+
+# Ticks and annotations
+plt.xticks(np.arange(0, 8, 1))
+plt.yticks(np.arange(-0.1, 0.8, 0.1))
+
+labels_measured = [
+    ax1.text(digital_codes[i], measured_voltage[i], measured_voltage[i], size=12, color='crimson', ha='left')
+    for i in range(len(digital_codes))
+]
+labels_ideal = [
+    ax1.text(digital_codes[i], ideal_voltage[i], ideal_voltage[i], size=12, color='seagreen', ha='left')
+    for i in range(len(digital_codes))
+]
+adjust_text(labels_measured + labels_ideal)
+
+plt.xlabel('Digital Code (3-bit)')
+plt.ylabel('Output Voltage (V)')
+plt.title('Corrected vs Ideal Output Voltage (After Endpoint Correction)')
+plt.show()
+
+# ====== PLOT 2: DNL ======
+fig2, ax2 = plt.subplots()
+ax2.plot(digital_codes, dnl_values, marker="o", markersize=5, markerfacecolor="royalblue")
+
+dnl_labels = [
+    ax2.text(digital_codes[i], dnl_values[i], dnl_values[i], size=15, color='maroon', ha='left')
+    for i in range(len(digital_codes))
+]
+
+plt.xticks(digital_codes)
+plt.yticks(np.arange(-0.3, 0.5, 0.1))
+plt.xlabel('Digital Code (3-bit)')
+plt.ylabel('DNL (LSB)')
+plt.title('Differential Non-Linearity (DNL)')
+plt.show()
+
+# ====== PLOT 3: INL ======
+fig3, ax3 = plt.subplots()
+ax3.plot(digital_codes, inl_values, marker="o", markersize=5, markerfacecolor="darkorange")
+
+inl_labels = [
+    ax3.text(digital_codes[i], inl_values[i], inl_values[i], size=15, color='maroon', ha='left')
+    for i in range(len(digital_codes))
+]
+
+plt.xticks(digital_codes)
+plt.xlabel('Digital Code (3-bit)')
+plt.ylabel('INL (LSB)')
+plt.title('Integral Non-Linearity (INL)')
+plt.show()
+
+
+4) 
+from matplotlib import pyplot as plt
+import numpy as np
+from adjustText import adjust_text
+
+# Raw and overrange-eliminated values
+x = list(range(16))
+y = np.array([43, 115, 85, 101, 122, 170, 75, 146, 125, 60, 95, 95, 115, 40, 120, 242])
+y_overrange_eliminated = np.array([0, 115, 85, 101, 122, 170, 75, 146, 125, 60, 95, 95, 115, 40, 120, 0])
+
+# ---------- PLOT 1: Overrange Eliminated Values ----------
+fig1, ax1 = plt.subplots()
+ax1.plot(x, y_overrange_eliminated, marker="o", markersize=5, markerfacecolor="crimson")
+text_actual = [
+    ax1.text(x[i], round(y_overrange_eliminated[i], 3), round(y_overrange_eliminated[i], 3),
+             size=12, color='crimson', ha='left') for i in range(len(x))
+]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('Analog Voltage Levels (Overrange Eliminated)')
+plt.title('Overrange Eliminated Values')
+plt.xticks(np.arange(0, 16, 1))
+adjust_text(text_actual)
+plt.show()
+
+# ---------- Normalize Data and Calculate DNL ----------
+sum_y_new = sum(y_overrange_eliminated)
+avg_y_new = sum_y_new / 14
+print("Average (ignoring endpoints):", avg_y_new)
+
+y_normalized = y_overrange_eliminated / avg_y_new
+y_DNL = y_normalized - 1
+y_DNL[0], y_DNL[15] = 0, 0
+
+# ---------- PLOT 2: Normalized Values ----------
+fig2, ax2 = plt.subplots()
+ax2.plot(x, y_normalized, marker="o", markersize=5, markerfacecolor="seagreen")
+text_actual = [
+    ax2.text(x[i], round(y_normalized[i], 3), round(y_normalized[i], 3),
+             size=12, color='seagreen', ha='left') for i in range(len(x))
+]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('Normalized Voltage Levels')
+plt.title('Normalized Output Values')
+plt.yticks(np.arange(0, 3, 0.2))
+plt.xticks(np.arange(0, 16, 1))
+adjust_text(text_actual)
+plt.show()
+
+# ---------- PLOT 3: DNL ----------
+fig3, ax3 = plt.subplots()
+ax3.plot(x, y_DNL, marker="o", markersize=5, markerfacecolor="steelblue")
+text_actual = [
+    ax3.text(x[i], round(y_DNL[i], 3), round(y_DNL[i], 3),
+             size=12, color='steelblue', ha='left') for i in range(len(x))
+]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('DNL (LSB)')
+plt.title('Differential Non-Linearity (DNL)')
+plt.yticks(np.arange(-0.7, 0.7, 0.1))
+plt.xticks(np.arange(0, 16, 1))
+adjust_text(text_actual)
+plt.show()
+
+# ---------- PLOT 4: Ramp Histogram ----------
+fig4, ax4 = plt.subplots()
+ax4.plot(x, y, marker="o", markersize=5, markerfacecolor="darkorange")
+text_actual = [
+    ax4.text(x[i], round(y[i], 3), round(y[i], 3),
+             size=12, color='darkorange', ha='left') for i in range(len(x))
+]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('Ramp Histogram Counts')
+plt.title('Ramp Histogram Voltage Levels')
+plt.xticks(np.arange(0, 16, 1))
+adjust_text(text_actual)
+plt.show()
+
+# ---------- Calculate Code Widths ----------
+x_Code_Width = [round(y_DNL[i] + 1, 2) for i in range(len(x))]
+x_Code_Width[0] = 0
+x_final = sum(x_Code_Width)
+
+# ---------- Generate Edges ----------
+x_Code_Width_Edges = [0.5]
+for i in range(1, 16):
+    edge = round(x_Code_Width[i] + x_Code_Width_Edges[i - 1], 2)
+    x_Code_Width_Edges.append(edge)
+
+print("x_Code_Width_Edges:", x_Code_Width_Edges)
+
+# ---------- Build Actual Transfer Function ----------
+data = {}
+key = round(-0.5, 2)
+for i in range(16):
+    while key < x_Code_Width_Edges[i]:
+        data[key] = x[i]
+        key = round(key + 0.01, 2)
+
+# ---------- Build Ideal Transfer Function ----------
+data_ideal = {}
+key_ideal = round(-0.5, 2)
+for i in range(16):
+    while key_ideal < (x[i] + 0.5):
+        data_ideal[key_ideal] = x[i]
+        key_ideal = round(key_ideal + 0.01, 2)
+
+# ---------- PLOT 5: Transfer Function ----------
+fig5, ax5 = plt.subplots()
+ax5.plot(list(data.keys()), list(data.values()), linestyle='solid', color='crimson', label='Actual')
+ax5.plot(list(data_ideal.keys()), list(data_ideal.values()), linestyle='solid', color='seagreen', label='Ideal')
+
+for i in range(16):
+    ax5.annotate(f'({x_Code_Width_Edges[i]}, {x[i]})', xy=(x_Code_Width_Edges[i], x[i]), fontsize=8)
+
+ax5.plot(x, x, linestyle='dashed', color='gray')
+plt.xlabel('Analog Input (V)')
+plt.ylabel('Digital Output Code')
+plt.title('Transfer Function')
+plt.yticks(np.arange(0, 16, 1))
+plt.xticks(np.arange(0, 16, 1))
+plt.legend()
+plt.show()
+
+# ---------- PLOT 6: INL ----------
+y_INL = []
+for i in range(len(x)):
+    integral = sum(y_DNL[:i + 1]) if i != 0 else 0
+    y_INL.append(round(integral, 3))
+
+fig6, ax6 = plt.subplots()
+ax6.plot(x, y_INL, marker="o", markersize=5, markerfacecolor="darkorange")
+text_actual = [
+    ax6.text(x[i], y_INL[i], y_INL[i], size=12, color='darkorange', ha='left') for i in range(len(x))
+]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('INL (LSB)')
+plt.title('Integral Non-Linearity (INL)')
+plt.xticks(np.arange(0, 16, 1))
+adjust_text(text_actual)
+plt.show()
+
+
+5)
+
+from matplotlib import pyplot as plt
+import numpy as np
+from adjustText import adjust_text
+
+# Parameters and Inputs
+n_bits = 8
+x = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5]
+y_DNL = [0, -0.5, 0, +0.5, -1, +0.5, +0.5, 0]
+y_INL = []
+
+Offset_error = +0.5
+Full_scale_error = +0.5
+
+# Calculate INL
+for i in range(len(x)):
+    y_INL.append(0 if i == 0 else sum(y_DNL[:i+1]))
+print("INL:", y_INL)
+
+# ---------- PLOT 1: DNL ----------
+fig1, ax1 = plt.subplots()
+ax1.plot(x, y_DNL, marker="o", markersize=5, markerfacecolor="steelblue")
+text_dnl = [ax1.text(x[i], round(y_DNL[i], 2), round(y_DNL[i], 2), size=12, color='steelblue', ha='left') for i in range(len(x))]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('DNL (LSBs)')
+plt.title('Differential Non-Linearity (DNL)')
+plt.xticks(np.arange(0, 8, 1))
+adjust_text(text_dnl)
+plt.show()
+
+# ---------- PLOT 2: INL ----------
+fig2, ax2 = plt.subplots()
+ax2.plot(x, y_INL, marker="o", markersize=5, markerfacecolor="darkorange")
+text_inl = [ax2.text(x[i], round(y_INL[i], 2), round(y_INL[i], 2), size=12, color='darkorange', ha='left') for i in range(len(x))]
+plt.xlabel('3-bit Digital Codes')
+plt.ylabel('INL (LSBs)')
+plt.title('Integral Non-Linearity (INL)')
+plt.xticks(np.arange(0, 8, 1))
+adjust_text(text_inl)
+plt.show()
+
+# ---------- Compute Code Widths ----------
+x_Code_Width = [round((y_DNL[i] + 1), 2) for i in range(len(x))]
+x_Code_Width[0] = 0
+x_final = sum(x_Code_Width)
+print("Code widths:", x_Code_Width)
+
+# ---------- Compute Code Edges ----------
+data = {}
+x_Code_Width_Edges = []
+for i in range(len(x)):
+    if i == 0:
+        x_Code_Width_Edges.append(1)
+    else:
+        edge = round((x_Code_Width[i] + x_Code_Width_Edges[i - 1]), 2)
+        x_Code_Width_Edges.append(edge)
+print("x_Code_Width_Edges:", x_Code_Width_Edges)
+
+# ---------- Generate Actual Mapping ----------
+key = 0
+for i in range(len(x)):
+    while key < x_Code_Width_Edges[i]:
+        data[key] = x[i] - 0.5
+        key = round(key + 0.01, 2)
+print("data:", data)
+
+x_values = list(data.keys())
+y_values = list(data.values())
+
+# ---------- Generate Ideal Mapping ----------
+data_ideal = {}
+key_ideal = 0
+for i in range(len(x)):
+    while key_ideal < (x[i] + 0.5):
+        data_ideal[key_ideal] = x[i] - 0.5
+        key_ideal = round(key_ideal + 0.01, 2)
+print("data_ideal:", data_ideal)
+
+x_values_ideal = list(data_ideal.keys())
+y_values_ideal = list(data_ideal.values())
+
+# ---------- PLOT 3: Transfer Function ----------
+fig3, ax3 = plt.subplots()
+ax3.plot(x_values, y_values, linestyle='solid', color='crimson', label='Actual')
+ax3.plot(x_values_ideal, y_values_ideal, linestyle='solid', color='seagreen', label='Ideal')
+
+# Annotate segment boundaries
+for i in range(len(x)):
+    x_pos = x_Code_Width_Edges[i]
+    y_pos = x[i] - 0.5
+    text = f'({x_Code_Width_Edges[i]}, {y_pos})'
+    ax3.annotate(text, xy=(x_pos, y_pos), fontsize=8)
+
+# Ideal line
+ax3.plot(x, [val - 0.5 for val in x], linestyle='dashed', color='gray', label='y = x - 0.5')
+
+plt.xlabel('Analog Input (LSBs)')
+plt.ylabel('Digital Output Code')
+plt.title('ADC Transfer Function')
+plt.yticks(np.arange(0, 8, 1))
+plt.xticks(np.arange(0, 8, 1))
+plt.legend()
+plt.show()
