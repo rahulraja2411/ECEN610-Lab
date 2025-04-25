@@ -1,0 +1,743 @@
+q1.
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+
+# ADC Configuration
+fs = 500e6            # Sampling frequency
+N_samples = 8192      # FFT size
+k = 201               # Number of cycles (relatively prime to N_samples)
+fin = (k / N_samples) * fs  # Adjusted sinewave frequency
+Vfs = 1.0             # Full-scale range
+N_bits = 13           # ADC resolution
+n_stages = 6          # Number of stages
+bits_per_stage = 2    # Bits resolved per stage
+
+# Time vector and input
+t = np.arange(N_samples) / fs
+input_signal = 0.9 * (Vfs / 2) * np.sin(2 * np.pi * fin * t)
+
+# Quantization functions
+def quantize(signal, bits, Vfs):
+    levels = 2 ** bits
+    step = Vfs / levels
+    code = np.floor((signal + Vfs / 2) / step)
+    return np.clip(code, 0, levels - 1)
+
+def dequantize(code, bits, Vfs):
+    levels = 2 ** bits
+    step = Vfs / levels
+    return (code + 0.5) * step - Vfs / 2
+
+# MDAC simulation
+def mdac_stage(residue_in, bits, Vfs):
+    code = quantize(residue_in, bits, Vfs)
+    dac_out = dequantize(code, bits, Vfs)
+    gain = 2 ** bits
+    residue_out = (residue_in - dac_out) * gain
+    return code.astype(int), residue_out
+
+# Pipeline ADC simulation
+residue = input_signal.copy()
+stage_codes = []
+
+for _ in range(n_stages):
+    code, residue = mdac_stage(residue, bits_per_stage, Vfs)
+    stage_codes.append(code)
+
+remaining_bits = N_bits - n_stages * bits_per_stage
+if remaining_bits > 0:
+    final_code = quantize(residue, remaining_bits, Vfs).astype(int)
+    stage_codes.append(final_code)
+    stage_bit_widths = [bits_per_stage] * n_stages + [remaining_bits]
+else:
+    stage_bit_widths = [bits_per_stage] * n_stages
+
+# Reconstruct ADC code
+adc_code = np.zeros_like(input_signal, dtype=int)
+bit_pointer = N_bits
+
+for code, width in zip(stage_codes, stage_bit_widths):
+    bit_pointer -= width
+    adc_code += code << bit_pointer
+
+# Map ADC code to analog voltage
+adc_output = (adc_code / (2 ** N_bits)) * Vfs - (Vfs/2) + (Vfs / (2 ** (N_bits+1)))
+error_signal = input_signal - adc_output
+
+# SNR Calculation
+window = np.hanning(N_samples)
+adc_output_windowed = adc_output * window
+spectrum = np.abs(fft(adc_output_windowed))[:N_samples//2]
+signal_bin = np.argmax(spectrum)
+signal_power = spectrum[signal_bin] ** 2
+noise_power = np.sum(spectrum**2) - signal_power
+snr = 10 * np.log10(signal_power / noise_power)
+
+# Plot input, output, error
+plt.figure(figsize=(12, 7))
+
+plt.subplot(3, 1, 1)
+plt.plot(t[:500] * 1e6, input_signal[:500], 'y')
+plt.title("Sampled Signal")
+plt.ylabel("Amplitude (V)")
+plt.grid(True)
+
+plt.subplot(3, 1, 2)
+plt.plot(t[:500] * 1e6, adc_output[:500], 'y')
+plt.title("ADC Output")
+plt.ylabel("Amplitude (V)")
+plt.grid(True)
+
+plt.subplot(3, 1, 3)
+plt.plot(t[:500] * 1e6, error_signal[:500], 'y')
+plt.title("Error Signal")
+plt.xlabel("Time (μs)")
+plt.ylabel("Error (V)")
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+# Plot FFT spectrum
+freqs = np.fft.fftfreq(N_samples, d=1/fs)[:N_samples//2] / 1e6  # Frequency in MHz
+
+plt.figure(figsize=(10, 5))
+plt.plot(freqs, 20 * np.log10(spectrum), 'y')
+plt.title("FFT of ADC Output (Windowed)")
+plt.xlabel("Frequency (MHz)")
+plt.ylabel("Magnitude (dB)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Print SNR
+print(f"SNR obtained:{snr: .2f} dB")
+
+q2.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+
+# Parameters
+fs = 500e6
+N = 8192
+f_in = 200e6
+snr_target = 80
+n_bits = 13
+Vfs = 1.0
+
+# Generate time and input
+t = np.arange(N) / fs
+clean_signal = 0.9 * (Vfs/2) * np.sin(2 * np.pi * f_in * t)
+signal_power = np.mean(clean_signal**2)
+noise_power = signal_power / (10**(snr_target/10))
+noise = np.sqrt(noise_power) * np.random.randn(N)
+input_signal = clean_signal + noise
+
+# Nonlinear ADC distortion model (2nd–5th order)
+def nonlinear_adc(x):
+    return x + 0.10 * x**2 + 0.20 * x**3 + 0.15 * x**4 + 0.10 * x**5
+
+adc_output = nonlinear_adc(input_signal)
+
+# LMS Calibration Function
+def lms_calibrate(x, d, order=5, mu=0.001, decimation=10):
+    N = len(x)
+    coeffs = np.zeros(order + 1)
+    coeffs[0] = 1  # Initial linear gain guess
+
+    error_log = []
+    y_log = []
+
+    for n in range(order + 1, N, decimation):
+        x_basis = np.array([x[n]**i for i in range(order + 1)])
+        y_hat = np.dot(coeffs, x_basis)
+        e = d[n] - y_hat
+        coeffs += 2 * mu * e * x_basis
+
+        error_log.append(e)
+        y_log.append(y_hat)
+
+    return coeffs, np.array(error_log), np.array(y_log)
+
+# FFT Spectrum Computation Function
+def compute_fft(signal, fs):
+    N = len(signal)
+    freqs = np.fft.fftfreq(N, 1/fs)[:N//2]
+    spectrum = np.abs(fft(signal))[:N//2]
+    return freqs, spectrum / np.max(spectrum)
+
+# Plot original FFT (before LMS)
+freqs, base_spectrum = compute_fft(adc_output, fs)
+
+# Sweep LMS decimation factors
+orders = [5]
+decimations = [10, 100, 1000, 10000]
+all_spectra = []
+all_errors = []
+
+for idx, decim in enumerate(decimations):
+    coeffs, error, y_hat = lms_calibrate(adc_output, input_signal, order=5, mu=1e-6, decimation=decim)
+    all_errors.append((decim, error))
+
+    # Apply final model to all samples
+    X_poly = np.vstack([adc_output**i for i in range(6)]).T
+    calibrated_output = X_poly @ coeffs
+
+    # Compute FFT after LMS
+    freqs, spectrum = compute_fft(calibrated_output, fs)
+    all_spectra.append((decim, spectrum))
+
+# Overlay all FFTs
+plt.figure(figsize=(10, 6))
+plt.plot(freqs, base_spectrum, label="Before LMS")
+for decim, spectrum in all_spectra:
+    plt.plot(freqs, spectrum, label=f"After LMS (Decim={decim})")
+plt.title("FFT Comparison Before and After LMS Calibration")
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Normalized Magnitude")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Overlay all LMS error convergence plots
+plt.figure(figsize=(10, 6))
+for decim, error in all_errors:
+    plt.plot(np.abs(error), label=f"Decimation = {decim}")
+plt.title("LMS Error Convergence for Various Decimation Factors")
+plt.xlabel("Iteration")
+plt.ylabel("Absolute Error")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Display final LMS coefficients
+print("\nFinal LMS Coefficients (5th-order model):")
+for i, c in enumerate(coeffs):
+    print(f"Order {i}: {c:.6f}")
+
+q3.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+
+# Parameters
+fs = 500e6
+N = 8192
+f_in = 200e6
+snr_target = 80
+n_bits = 13
+Vfs = 1.0
+ideal_coeffs = np.array([1, 0.10, 0.20, 0.15, 0.10, 0])  # Ideal nonlinear model up to x^5
+
+# Generate time and input
+t = np.arange(N) / fs
+clean_signal = 0.9 * (Vfs/2) * np.sin(2 * np.pi * f_in * t)
+signal_power = np.mean(clean_signal**2)
+noise_power = signal_power / (10**(snr_target/10))
+noise = np.sqrt(noise_power) * np.random.randn(N)
+input_signal = clean_signal + noise
+
+# Nonlinear ADC distortion model (2nd–5th order)
+def nonlinear_adc(x):
+    return x + 0.10 * x**2 + 0.20 * x**3 + 0.15 * x**4 + 0.10 * x**5
+
+adc_output = nonlinear_adc(input_signal)
+
+# LMS Calibration Function with weight logging
+def lms_calibrate(x, d, order=5, mu=0.001, decimation=1):
+    N = len(x)
+    coeffs = np.zeros(order + 1)
+    coeffs[0] = 1  # Initial linear gain guess
+
+    error_log = []
+    y_log = []
+    weight_log = []
+    snr_log = []
+
+    for n in range(order + 1, N, decimation):
+        x_basis = np.array([x[n]**i for i in range(order + 1)])
+        y_hat = np.dot(coeffs, x_basis)
+        e = d[n] - y_hat
+        coeffs += 2 * mu * e * x_basis
+
+        y_full = np.dot(np.vstack([x**i for i in range(order + 1)]).T, coeffs)
+        snr = 10 * np.log10(np.mean(d**2) / np.mean((d - y_full)**2))
+
+        error_log.append(e)
+        y_log.append(y_hat)
+        weight_log.append(coeffs.copy())
+        snr_log.append(snr)
+
+        if snr >= 80:
+            break
+
+    return coeffs, np.array(error_log), np.array(y_log), np.array(weight_log), np.array(snr_log)
+
+# FFT Spectrum Computation Function
+def compute_fft(signal, fs):
+    N = len(signal)
+    freqs = np.fft.fftfreq(N, 1/fs)[:N//2]
+    spectrum = np.abs(fft(signal))[:N//2]
+    return freqs, spectrum / np.max(spectrum)
+
+# LMS configuration (match Simulink block: M-tap = 8, mu = 0.001)
+coeffs, error, y_hat, weights, snr_log = lms_calibrate(adc_output, input_signal, order=7, mu=0.001, decimation=1)
+
+# Apply final model to all samples
+X_poly = np.vstack([adc_output**i for i in range(8)]).T
+calibrated_output = X_poly @ coeffs
+
+# Compute FFT before and after LMS
+freqs, base_spectrum = compute_fft(adc_output, fs)
+freqs, corrected_spectrum = compute_fft(calibrated_output, fs)
+
+# Plot FFT comparison
+plt.figure(figsize=(10, 6))
+plt.plot(freqs, base_spectrum, label="Before LMS")
+plt.plot(freqs, corrected_spectrum, label="After LMS")
+plt.title("FFT Comparison Before and After LMS Calibration")
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Normalized Magnitude")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Plot error signal
+plt.figure(figsize=(10, 4), facecolor='black')
+plt.plot(np.real(error), color='yellow')
+plt.title("Error from LMS block", color='white')
+plt.xlabel("Iteration", color='white')
+plt.ylabel("Error", color='white')
+plt.grid(True, color='gray')
+plt.tick_params(colors='white')
+plt.tight_layout()
+plt.show()
+
+# Plot weights from LMS block
+weights = np.array(weights)
+plt.figure(figsize=(10, 6), facecolor='black')
+for i in range(weights.shape[1]):
+    plt.plot(weights[:, i], label=f"w{i}")
+plt.title("Weights from LMS block", color='white')
+plt.xlabel("Iteration", color='white')
+plt.ylabel("Weight Value", color='white')
+plt.grid(True, color='gray')
+plt.tick_params(colors='white')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# SNR before and after
+snr_before = 10 * np.log10(np.mean(input_signal**2) / np.mean((adc_output - input_signal)**2))
+snr_after = 10 * np.log10(np.mean(input_signal**2) / np.mean((calibrated_output - input_signal)**2))
+print(f"\nSNR Before LMS: {snr_before:.4f} dB")
+print(f"SNR After LMS:  {snr_after:.4f} dB")
+
+# Convergence time info
+iterations = len(snr_log)
+time_step = 1 / fs  # 2 ns
+convergence_time_us = iterations * time_step * 1e6
+print(f"\nLMS algorithm takes {convergence_time_us:.1f} us to converge, total iterations: {iterations}")
+
+# Display final LMS coefficients and compare to ideal
+print("\nFinal LMS Coefficients (7th-order model):")
+for i, c in enumerate(coeffs):
+    print(f"Order {i}: LMS = {c:.6f}")
+
+q4.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+
+# Parameters
+fs = 500e6
+N = 8192
+f_in = 200e6
+snr_target = 80
+n_bits = 13
+Vfs = 1.0
+ideal_coeffs = np.array([1, 0.10, 0.20, 0.15, 0.10, 0, 0, 0])  # Ideal nonlinear model up to x^7
+
+# Generate time and input
+t = np.arange(N) / fs
+clean_signal = 0.9 * (Vfs/2) * np.sin(2 * np.pi * f_in * t)
+signal_power = np.mean(clean_signal**2)
+noise_power = signal_power / (10**(snr_target/10))
+noise = np.sqrt(noise_power) * np.random.randn(N)
+input_signal = clean_signal + noise
+
+# Nonlinear ADC distortion model (2nd–5th order)
+def nonlinear_adc(x):
+    return x + 0.10 * x**2 + 0.20 * x**3 + 0.15 * x**4 + 0.10 * x**5
+
+adc_output = nonlinear_adc(input_signal)
+
+# Normalized LMS Calibration Function
+
+def nlms_calibrate(x, d, order=7, mu=0.5, decimation=1, epsilon=1e-6):
+    N = len(x)
+    coeffs = np.zeros(order + 1)
+    coeffs[0] = 1  # Initial linear gain guess
+
+    error_log = []
+    y_log = []
+    weight_log = []
+    snr_log = []
+
+    for n in range(order + 1, N, decimation):
+        x_basis = np.array([x[n]**i for i in range(order + 1)])
+        norm_factor = np.dot(x_basis, x_basis) + epsilon
+        y_hat = np.dot(coeffs, x_basis)
+        e = d[n] - y_hat
+        coeffs += 2 * mu * e * x_basis / norm_factor
+
+        y_full = np.dot(np.vstack([x**i for i in range(order + 1)]).T, coeffs)
+        snr = 10 * np.log10(np.mean(d**2) / np.mean((d - y_full)**2))
+
+        error_log.append(e)
+        y_log.append(y_hat)
+        weight_log.append(coeffs.copy())
+        snr_log.append(snr)
+
+        if snr >= 80:
+            break
+
+    return coeffs, np.array(error_log), np.array(y_log), np.array(weight_log), np.array(snr_log)
+
+# FFT Spectrum Computation Function
+def compute_fft(signal, fs):
+    N = len(signal)
+    freqs = np.fft.fftfreq(N, 1/fs)[:N//2]
+    spectrum = np.abs(fft(signal))[:N//2]
+    return freqs, spectrum / np.max(spectrum)
+
+# Run Normalized LMS calibration
+coeffs, error, y_hat, weights, snr_log = nlms_calibrate(adc_output, input_signal, order=7, mu=0.5, decimation=1)
+
+# Apply final model to all samples
+X_poly = np.vstack([adc_output**i for i in range(8)]).T
+calibrated_output = X_poly @ coeffs
+
+# Compute FFT before and after NLMS
+freqs, base_spectrum = compute_fft(adc_output, fs)
+freqs, corrected_spectrum = compute_fft(calibrated_output, fs)
+
+# Plot FFT comparison
+plt.figure(figsize=(10, 6))
+plt.plot(freqs, base_spectrum, label="Before NLMS")
+plt.plot(freqs, corrected_spectrum, label="After NLMS")
+plt.title("FFT Comparison Before and After NLMS Calibration")
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Normalized Magnitude")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Plot error signal
+plt.figure(figsize=(10, 4), facecolor='black')
+plt.plot(np.real(error), color='yellow')
+plt.title("Error from NLMS block", color='white')
+plt.xlabel("Iteration", color='white')
+plt.ylabel("Error", color='white')
+plt.grid(True, color='gray')
+plt.tick_params(colors='white')
+plt.tight_layout()
+plt.show()
+
+# Plot weights from NLMS block
+weights = np.array(weights)
+plt.figure(figsize=(10, 6), facecolor='black')
+for i in range(weights.shape[1]):
+    plt.plot(weights[:, i], label=f"w{i}")
+plt.title("Weights from NLMS block", color='white')
+plt.xlabel("Iteration", color='white')
+plt.ylabel("Weight Value", color='white')
+plt.grid(True, color='gray')
+plt.tick_params(colors='white')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# SNR before and after
+snr_before = 10 * np.log10(np.mean(input_signal**2) / np.mean((adc_output - input_signal)**2))
+snr_after = 10 * np.log10(np.mean(input_signal**2) / np.mean((calibrated_output - input_signal)**2))
+print(f"\nSNR Before NLMS: {snr_before:.4f} dB")
+print(f"SNR After NLMS:  {snr_after:.4f} dB")
+
+# Convergence time info
+iterations = len(snr_log)
+time_step = 1 / fs  # 2 ns
+convergence_time_ns = iterations * time_step * 1e9
+print(f"\nNLMS algorithm takes {convergence_time_ns:.1f} ns to converge, total iterations: {iterations}")
+
+# Display final NLMS coefficients and compare to ideal
+print("\nFinal NLMS Coefficients (7th-order model):")
+for i, c in enumerate(coeffs):
+    print(f"Order {i}: NLMS = {c:.6f}, Ideal = {ideal_coeffs[i]:.6f}")
+
+q5.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+
+# Parameters
+fs = 500e6
+N = 8192
+f_in = 200e6
+snr_target = 80
+n_bits = 13
+Vfs = 1.0
+ideal_coeffs = np.array([1, 0.10, 0.20, 0.15, 0.10, 0, 0, 0])  # Ideal nonlinear model up to x^7
+
+# Generate time and input
+t = np.arange(N) / fs
+clean_signal = 0.9 * (Vfs/2) * np.sin(2 * np.pi * f_in * t)
+signal_power = np.mean(clean_signal**2)
+noise_power = signal_power / (10**(snr_target/10))
+noise = np.sqrt(noise_power) * np.random.randn(N)
+input_signal = clean_signal + noise
+
+# Distortion with op-amp gain-bandwidth effects and non-linearities
+def nonlinear_adc_with_gbw_and_distortion(x):
+    gain = 1.0
+    bw_effect = 0.8  # 80% of ideal GBW
+    x_filtered = bw_effect * x  # simulate limited bandwidth effect
+    return gain * (x_filtered + 0.10 * x_filtered**2 + 0.20 * x_filtered**3 + 0.15 * x_filtered**4 + 0.10 * x_filtered**5)
+
+adc_output = nonlinear_adc_with_gbw_and_distortion(input_signal)
+
+# Normalized LMS Calibration Function
+def nlms_calibrate(x, d, order=7, mu=0.5, decimation=1, epsilon=1e-6):
+    N = len(x)
+    coeffs = np.zeros(order + 1)
+    coeffs[0] = 1
+    error_log = []
+    y_log = []
+    weight_log = []
+    snr_log = []
+
+    for n in range(order + 1, N, decimation):
+        x_basis = np.array([x[n]**i for i in range(order + 1)])
+        norm_factor = np.dot(x_basis, x_basis) + epsilon
+        y_hat = np.dot(coeffs, x_basis)
+        e = d[n] - y_hat
+        coeffs += 2 * mu * e * x_basis / norm_factor
+
+        if n % 100 == 0:
+            y_full = np.dot(np.vstack([x**i for i in range(order + 1)]).T, coeffs)
+            snr = 10 * np.log10(np.mean(d**2) / np.mean((d - y_full)**2))
+            snr_log.append(snr)
+
+        error_log.append(e)
+        y_log.append(y_hat)
+        weight_log.append(coeffs.copy())
+
+        if snr_log and snr_log[-1] >= 80:
+            break
+
+    return coeffs, np.array(error_log), np.array(y_log), np.array(weight_log), np.array(snr_log)
+
+# FFT Spectrum Computation Function
+def compute_fft(signal, fs):
+    N = len(signal)
+    freqs = np.fft.fftfreq(N, 1/fs)[:N//2]
+    spectrum = np.abs(fft(signal))[:N//2]
+    return freqs, spectrum / np.max(spectrum)
+
+# Sweep decimation factors for convergence study
+decimations = [10, 100, 1000, 10000]
+for decim in decimations:
+    print(f"\n===== Decimation = {decim} =====")
+    coeffs, error, y_hat, weights, snr_log = nlms_calibrate(adc_output, input_signal, order=7, mu=0.5, decimation=decim)
+
+    # Apply final model to all samples
+    X_poly = np.vstack([adc_output**i for i in range(8)]).T
+    calibrated_output = X_poly @ coeffs
+
+    # Compute FFT before and after NLMS
+    freqs, base_spectrum = compute_fft(adc_output, fs)
+    freqs, corrected_spectrum = compute_fft(calibrated_output, fs)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(freqs, base_spectrum, label="Before NLMS")
+    plt.plot(freqs, corrected_spectrum, label="After NLMS")
+    plt.title(f"FFT Before/After NLMS - Decimation = {decim}")
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("Normalized Magnitude")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # Plot error signal
+    plt.figure(figsize=(10, 4), facecolor='black')
+    plt.plot(np.real(error), color='yellow')
+    plt.title(f"Error Signal - Decimation = {decim}", color='white')
+    plt.xlabel("Iteration", color='white')
+    plt.ylabel("Error", color='white')
+    plt.grid(True, color='gray')
+    plt.tick_params(colors='white')
+    plt.tight_layout()
+    plt.show()
+
+    # Plot weights from NLMS block
+    weights = np.array(weights)
+    plt.figure(figsize=(10, 6), facecolor='black')
+    for i in range(weights.shape[1]):
+        plt.plot(weights[:, i], label=f"w{i}")
+    plt.title(f"Weights from NLMS - Decimation = {decim}", color='white')
+    plt.xlabel("Iteration", color='white')
+    plt.ylabel("Weight Value", color='white')
+    plt.grid(True, color='gray')
+    plt.tick_params(colors='white')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # SNR before and after
+    snr_before = 10 * np.log10(np.mean(input_signal**2) / np.mean((adc_output - input_signal)**2))
+    snr_after = 10 * np.log10(np.mean(input_signal**2) / np.mean((calibrated_output - input_signal)**2))
+    print(f"SNR Before NLMS: {snr_before:.4f} dB")
+    print(f"SNR After NLMS:  {snr_after:.4f} dB")
+
+    # Convergence info
+    iterations = len(snr_log)
+    time_step = 1 / fs
+    convergence_time_ns = iterations * 100 * time_step * 1e9  # log every 100 steps
+    print(f"Convergence Time ≈ {convergence_time_ns:.1f} ns ({iterations * 100} iterations)")
+
+    # Final weights
+    print("Final Coefficients:")
+    for i, c in enumerate(coeffs):
+        print(f"w{i} = {c:.6f}")
+
+q7.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+
+# Parameters
+fs = 500e6
+N = 8192
+n_tones = 128
+bw = 200e6
+n_bits = 13
+Vfs = 1.0
+mu = 0.5
+order = 1
+snr_target = 80
+
+t = np.arange(N) / fs
+f_start = fs/2 - bw/2
+frequencies = np.linspace(f_start, f_start + bw, n_tones, endpoint=False)
+symbols = 2 * (np.random.randint(0, 2, size=n_tones) - 0.5)  # BPSK (+1/-1)
+
+# Generate BPSK-multitone signal
+input_signal = np.zeros(N)
+for i, f in enumerate(frequencies):
+    input_signal += symbols[i] * np.cos(2 * np.pi * f * t)
+input_signal /= np.max(np.abs(input_signal))
+
+# Add noise for 80 dB SNR
+signal_power = np.mean(input_signal**2)
+noise_power = signal_power / (10**(snr_target/10))
+noise = np.sqrt(noise_power) * np.random.randn(N)
+noisy_input = input_signal + noise
+
+# Define ADC with linear static errors
+def linear_adc(x):
+    gain_error = 0.95
+    offset = 0.01
+    mismatch = np.random.normal(1.0, 0.01, size=len(x))
+    return gain_error * x * mismatch + offset
+
+# Define ADC with nonlinear errors
+def nonlinear_adc(x):
+    x_lin = linear_adc(x)
+    return x_lin + 0.10 * x_lin**2 + 0.20 * x_lin**3 + 0.15 * x_lin**4 + 0.10 * x_lin**5
+
+# NLMS Function
+def nlms_bpsk(x, d, order=1, mu=0.5, decimation=1, epsilon=1e-6):
+    N = len(x)
+    coeffs = np.zeros(order + 1)
+    coeffs[0] = 1
+    error_log, weight_log = [], []
+    for n in range(order + 1, N, decimation):
+        x_basis = np.array([x[n]**i for i in range(order + 1)])
+        norm = np.dot(x_basis, x_basis) + epsilon
+        y_hat = np.dot(coeffs, x_basis)
+        e = d[n] - y_hat
+        coeffs += 2 * mu * e * x_basis / norm
+        error_log.append(e)
+        weight_log.append(coeffs.copy())
+    return coeffs, np.array(error_log), np.array(weight_log)
+
+# DFT estimation (synchronized)
+def dft_bpsk_estimation(signal, N, tones):
+    fft_out = fft(signal, N)
+    bin_indices = ((tones - f_start) / fs * N).astype(int)
+    est_symbols = np.real(fft_out[bin_indices])
+    return np.sign(est_symbols)
+
+# Evaluate MSE and BER
+def evaluate_performance(est, true):
+    mse = np.mean((est - true)**2)
+    ber = np.mean(est != true)
+    return mse, ber
+
+# Run simulations
+adc_funcs = {"Linear": linear_adc, "Nonlinear": nonlinear_adc}
+decimations = [10, 100, 1000, 10000]
+
+for label, adc_func in adc_funcs.items():
+    print(f"\n=== {label} ADC Errors ===")
+    adc_out = adc_func(noisy_input)
+    for decim in decimations:
+        print(f"-- Decimation = {decim} --")
+        coeffs, error, weights = nlms_bpsk(adc_out, noisy_input, order=order, mu=mu, decimation=decim)
+        # Calibrated output
+        X_poly = np.vstack([adc_out**i for i in range(order + 1)]).T
+        calibrated_output = X_poly @ coeffs
+
+        # DFT-based estimation
+        est = dft_bpsk_estimation(calibrated_output, N, frequencies)
+        mse, ber = evaluate_performance(est, symbols)
+
+        print(f"MSE = {mse:.6e}, BER = {ber:.4f}, Final weights: {coeffs}")
+
+        # Plot results
+        plt.figure(figsize=(8, 3), facecolor='black')
+        plt.plot(error, color='yellow')
+        plt.title(f"{label} Error Settling - Decim={decim}", color='white')
+        plt.grid(True, color='gray')
+        plt.xlabel("Iteration", color='white')
+        plt.ylabel("Error", color='white')
+        plt.tick_params(colors='white')
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(8, 4), facecolor='black')
+        weights = np.array(weights)
+        for i in range(weights.shape[1]):
+            plt.plot(weights[:, i], label=f"w{i}")
+        plt.title(f"{label} Weight Settling - Decim={decim}", color='white')
+        plt.grid(True, color='gray')
+        plt.xlabel("Iteration", color='white')
+        plt.ylabel("Value", color='white')
+        plt.legend()
+        plt.tick_params(colors='white')
+        plt.tight_layout()
+        plt.show()
+
+
